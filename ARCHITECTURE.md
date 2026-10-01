@@ -9,26 +9,32 @@ The browser is the primary environment for document work. Markdown, images, and 
 ```text
 Markdown
    ↓
-Markdown Parser
+remark-parse + remark-gfm
    ↓
-Document Model
+MDAST
    ↓
-Document Renderer
-   ├── Preview
-   └── PDF Export
+remark-rehype
+   ↓
+HAST
+   ↓
+rehype-sanitize
+   ↓
+HTML
+   ↓
+Preview
 ```
 
-The document model separates Markdown input from its visual renderers, so preview and PDF export can share document semantics without coupling Markdown directly to PDF.
+The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React. It turns Markdown into sanitized HTML. The preview consumes that output; future export paths should reuse the same parsing and sanitization logic where possible.
 
 ## Privacy
 
-Markdown, images, and PDFs must not be sent to servers for core document features. Parsing, rendering, export, and local persistence are intended to run in the browser. Any future network feature must remain separate from this core workflow.
+Markdown, images, and PDFs must not be sent to servers for core document features. The editor currently holds Markdown in React state and runs parsing, transformation, sanitization, and preview rendering in the browser. Any future network feature must remain separate from this core workflow.
 
 ## Separation of concerns
 
-- **`lib/markdown`** owns Markdown parsing, AST handling, and transformations into document data.
+- **`lib/markdown`** owns Markdown parsing and transformation through MDAST/HAST into sanitized HTML. It does not depend on React.
 - **`lib/document`** defines the internal document model and transformations of that model.
-- **`components/preview`** presents rendered document output and does not parse Markdown.
+- **`components/preview`** presents sanitized rendered document output and does not parse Markdown.
 - **`components/document`** provides reusable document visuals that preview and export can share.
 - **`lib/pdf`** will export the document model client-side.
 - **`lib/storage`** will persist user documents locally through browser storage or file APIs.
@@ -37,7 +43,7 @@ The corresponding UI is grouped under `components/editor`, `components/preview`,
 
 ## Future capabilities
 
-These are planned and are not implemented in the current scaffold:
+These are planned and are not implemented yet:
 
 - CodeMirror 6 editor
 - GitHub Flavored Markdown and syntax highlighting

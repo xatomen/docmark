@@ -1,10 +1,10 @@
 # Docmark
 
-Docmark is a local-first web application for creating polished documents from Markdown. The initial project establishes the UI and architecture for a future in-browser editor and PDF workflow.
+Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a basic Markdown editor, GitHub Flavored Markdown processing, sanitized HTML output, and a live document preview.
 
 ## Local-first philosophy
 
-Document content should stay in the user's browser. The primary workflow is designed to process Markdown, images, and PDF output locally, without sending document data to a server. This repository does not currently include document processing or persistence.
+Document content stays in the user's browser during the editing workflow. Markdown is parsed, transformed, sanitized, and rendered locally without sending document content to a backend. Persistence and PDF export are not implemented yet.
 
 ## Stack
 
@@ -14,7 +14,9 @@ Document content should stay in the user's browser. The primary workflow is desi
 - Tailwind CSS 4
 - ESLint 9
 
-No Markdown, PDF, editor, or local-storage libraries have been added yet.
+No dedicated code editor, PDF, or local-storage libraries have been added yet.
+
+The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
 
 ## Run locally
 
@@ -57,7 +59,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 
 ## Project status
 
-Scaffolding only. The landing page and editor workspace placeholder are present. Markdown editing, parsing, document rendering, PDF export, and persistence are not implemented.
+Implemented: basic Markdown input in a textarea, GitHub Flavored Markdown, HTML sanitization, and a live preview. Markdown state is temporary and resets when the page reloads. PDF export, persistence, and a dedicated code editor are not implemented.
 
 ## Initial roadmap
 
