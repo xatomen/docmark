@@ -76,6 +76,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
   :::pagebreak
   :::
   ```
+- Print-safe wrapping keeps long code lines, links, and technical identifiers within the page width. Tables stay inside the content area; wrapping increases document height and may increase the page count. Document pages intentionally avoid horizontal scrolling.
 
 Markdown state is temporary and resets when the page reloads.
 

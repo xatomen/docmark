@@ -2,6 +2,7 @@
   color: #282a27;
   font-size: 0.9375rem;
   line-height: 1.75;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -88,16 +89,24 @@
 }
 
 .document-theme :not(pre) > code {
+  max-width: 100%;
   border: 1px solid #e1e2dc;
   border-radius: 0.25rem;
   background: #f3f3f0;
   padding: 0.12em 0.35em;
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 0.875em;
+  overflow-wrap: anywhere;
+  white-space: inherit;
 }
 
 .document-theme pre {
-  overflow-x: auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: visible;
+  overflow-wrap: anywhere;
   border: 1px solid #dedfd9;
   border-radius: 0.375rem;
   background: #f5f5f2;
@@ -105,25 +114,40 @@
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.65;
+  white-space: pre-wrap;
 }
 
 .document-theme pre code {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
   font: inherit;
+  overflow-wrap: inherit;
+  white-space: inherit;
 }
 
 .document-theme table {
-  display: block;
+  box-sizing: border-box;
   width: 100%;
-  overflow-x: auto;
+  max-width: 100%;
+  table-layout: auto;
+  overflow-wrap: anywhere;
   border-collapse: collapse;
   font-size: 0.875rem;
 }
 
+.document-theme table:has(> thead > tr > :nth-child(7)) {
+  table-layout: fixed;
+}
+
 .document-theme th,
 .document-theme td {
+  min-width: 0;
   border: 1px solid #dedfd9;
   padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
   text-align: left;
+  vertical-align: top;
 }
 
 .document-theme th {
