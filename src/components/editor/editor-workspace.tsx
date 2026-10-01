@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { DocumentPreview } from "@/components/preview/document-preview";
+import { DocumentSettingsControls } from "@/components/preview/document-settings-controls";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
+import {
+  DEFAULT_DOCUMENT_SETTINGS,
+  type DocumentSettings,
+} from "@/lib/document/settings";
 
 const initialMarkdown = `# Welcome to Docmark
 
@@ -32,6 +37,9 @@ const project = "Docmark";
 
 export function EditorWorkspace() {
   const [markdown, setMarkdown] = useState(initialMarkdown);
+  const [documentSettings, setDocumentSettings] = useState<DocumentSettings>(
+    DEFAULT_DOCUMENT_SETTINGS,
+  );
 
   return (
     <section
@@ -64,7 +72,11 @@ export function EditorWorkspace() {
           </h2>
           <span className="font-mono text-xs text-muted">Live</span>
         </div>
-        <DocumentPreview markdown={markdown} />
+        <DocumentSettingsControls
+          settings={documentSettings}
+          onChange={setDocumentSettings}
+        />
+        <DocumentPreview markdown={markdown} settings={documentSettings} />
       </section>
     </section>
   );

@@ -143,38 +143,3 @@
   list-style: none;
   margin-left: -1.25rem;
 }
-
-@media (prefers-color-scheme: dark) {
-  .document-theme {
-    color: #d8d9d2;
-  }
-
-  .document-theme h1,
-  .document-theme h2,
-  .document-theme h3,
-  .document-theme h4 {
-    color: #efefe9;
-  }
-
-  .document-theme h2,
-  .document-theme th,
-  .document-theme td,
-  .document-theme pre,
-  .document-theme hr {
-    border-color: #3b3d36;
-  }
-
-  .document-theme a {
-    color: #a5c9a7;
-  }
-
-  .document-theme blockquote {
-    color: #aaaca3;
-  }
-
-  .document-theme :not(pre) > code,
-  .document-theme pre,
-  .document-theme th {
-    background: #22241f;
-  }
-}
