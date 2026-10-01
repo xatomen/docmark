@@ -7,7 +7,30 @@ The browser is the primary environment for document work. Markdown, images, and 
 ## Data flow
 
 ```text
-Markdown
+             Browser
+        ┌──────────────┐
+        │ CodeMirror 6 │
+        └──────┬───────┘
+               │ Markdown string
+               ▼
+        ┌──────────────┐
+        │ lib/markdown │
+        └──────┬───────┘
+               │
+        Sanitized HTML
+               │
+               ▼
+        ┌──────────────┐
+        │   Preview    │
+        └──────────────┘
+```
+
+CodeMirror belongs to the browser-side input layer. It edits a Markdown string and does not participate in parsing, sanitization, or document rendering. The editor workspace keeps the current Markdown in React state and passes it to the preview pipeline.
+
+## Markdown data flow
+
+```text
+Markdown string
    ↓
 remark-parse + remark-gfm
    ↓
@@ -24,7 +47,7 @@ HTML
 Preview
 ```
 
-The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React. It turns Markdown into sanitized HTML. The preview consumes that output; future export paths should reuse the same parsing and sanitization logic where possible.
+The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React and CodeMirror. It turns Markdown into sanitized HTML. The preview consumes that output; future export paths should reuse the same parsing and sanitization logic where possible.
 
 ## Privacy
 
@@ -45,9 +68,8 @@ The corresponding UI is grouped under `components/editor`, `components/preview`,
 
 These are planned and are not implemented yet:
 
-- CodeMirror 6 editor
-- GitHub Flavored Markdown and syntax highlighting
 - Document themes
+- Markdown syntax extensions beyond GFM
 - A4 and Letter page sizes, with configurable margins
 - Local files and IndexedDB persistence
 - Mermaid diagrams and KaTeX math

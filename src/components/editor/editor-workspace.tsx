@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DocumentPreview } from "@/components/preview/document-preview";
+import { MarkdownEditor } from "@/components/editor/markdown-editor";
 
 const initialMarkdown = `# Welcome to Docmark
 
@@ -47,17 +48,7 @@ export function EditorWorkspace() {
           </h1>
           <span className="font-mono text-xs text-muted">.md</span>
         </div>
-        <label htmlFor="markdown-input" className="sr-only">
-          Markdown source
-        </label>
-        <textarea
-          id="markdown-input"
-          value={markdown}
-          onChange={(event) => setMarkdown(event.target.value)}
-          spellCheck={false}
-          aria-describedby="editor-hint"
-          className="min-h-[calc(50vh-3rem)] flex-1 resize-none overflow-auto bg-background px-5 py-5 font-mono text-sm leading-7 text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent md:min-h-0 md:px-8"
-        />
+        <MarkdownEditor value={markdown} onChange={setMarkdown} />
         <p id="editor-hint" className="sr-only">
           Enter Markdown. The document preview updates as you type.
         </p>

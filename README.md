@@ -1,6 +1,6 @@
 # Docmark
 
-Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a basic Markdown editor, GitHub Flavored Markdown processing, sanitized HTML output, and a live document preview.
+Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized HTML output, and a live document preview.
 
 ## Local-first philosophy
 
@@ -14,9 +14,11 @@ Document content stays in the user's browser during the editing workflow. Markdo
 - Tailwind CSS 4
 - ESLint 9
 
-No dedicated code editor, PDF, or local-storage libraries have been added yet.
+PDF export and local-storage libraries have not been added yet.
 
 The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
+
+The editor uses CodeMirror 6 packages: `@codemirror/state`, `@codemirror/view`, `@codemirror/lang-markdown`, `@codemirror/language`, and `@codemirror/commands`.
 
 ## Run locally
 
@@ -36,17 +38,15 @@ pnpm build
 
 ## Architecture
 
-The App Router pages and layouts use Server Components by default. Browser-dependent editor, persistence, and export capabilities will introduce explicit Client Component boundaries when implemented.
+The App Router pages and root layout use Server Components by default. The interactive workspace owns Markdown state, while the CodeMirror editor and live preview use focused Client Component boundaries. CodeMirror is the input layer; it does not parse or render the preview.
 
 ```text
-Markdown → Markdown Parser → Document Model → Document Renderer
-                                                   ├── Preview
-                                                   └── PDF Export
+CodeMirror 6 → Markdown state → Markdown pipeline → Sanitized HTML → Preview
 ```
 
 - `src/app`: landing page, editor route, root layout, and global styles.
-- `src/components/editor`: future Markdown editing experience.
-- `src/components/preview`: future document preview; it will consume the document model rather than parse Markdown.
+- `src/components/editor`: CodeMirror input and the editor workspace state.
+- `src/components/preview`: rendered document preview; it consumes sanitized HTML and does not parse Markdown.
 - `src/components/document`: reusable visual document representation shared by preview and export.
 - `src/components/ui`: generic interface components.
 - `src/lib/markdown`: parsing, AST, and Markdown transformations.
@@ -59,14 +59,20 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 
 ## Project status
 
-Implemented: basic Markdown input in a textarea, GitHub Flavored Markdown, HTML sanitization, and a live preview. Markdown state is temporary and resets when the page reloads. PDF export, persistence, and a dedicated code editor are not implemented.
+### Implemented
+
+- Markdown editing with CodeMirror 6
+- Markdown syntax highlighting
+- GitHub Flavored Markdown
+- Sanitized live preview
+
+Markdown state is temporary and resets when the page reloads.
 
 ## Initial roadmap
 
-1. Define the document model and Markdown parsing pipeline.
-2. Build a browser-based editor and renderer-driven preview.
-3. Add document themes, page sizes, and configurable margins.
-4. Implement client-side PDF export and local persistence.
-5. Add optional advanced Markdown features and PWA/offline support.
+1. Define the document model and document layout, page sizes, and configurable margins.
+2. Implement client-side PDF export and local persistence.
+3. Add local file handling.
+4. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include CodeMirror 6, GitHub Flavored Markdown, syntax highlighting, themes, A4/Letter page sizes, configurable margins, local files, IndexedDB, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.
+Planned capabilities include document themes, A4/Letter page sizes, configurable margins, local files, IndexedDB, PDF export, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.
