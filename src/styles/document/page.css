@@ -6,16 +6,29 @@
   position: relative;
 }
 
+.measurement-layer {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  z-index: -1;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .physical-page {
   position: absolute;
   top: 0;
   left: 50%;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
   background: #ffffff;
   color: #282a27;
-  border: 1px solid #d6d7d1;
+  outline: 1px solid #d6d7d1;
   box-shadow: 0 2px 8px rgb(25 27 22 / 10%);
+}
+
+.physical-page-overflow {
+  overflow: visible;
 }
 
 .page-caption {

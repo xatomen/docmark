@@ -5,6 +5,10 @@
   overflow-wrap: anywhere;
 }
 
+.document-content {
+  display: flow-root;
+}
+
 .document-theme > :first-child {
   margin-top: 0;
 }
@@ -137,6 +141,13 @@
   margin: 0 0.5rem 0 0;
   accent-color: #536e55;
   vertical-align: middle;
+}
+
+.document-theme img {
+  max-width: 100%;
+  max-height: var(--document-content-height, 257mm);
+  height: auto;
+  object-fit: contain;
 }
 
 .document-theme li:has(> input[type="checkbox"]) {

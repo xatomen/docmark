@@ -1,6 +1,6 @@
 # Docmark
 
-Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized live preview, and a configurable physical document preview.
+Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized live preview, configurable physical pages, automatic pagination, and manual page breaks.
 
 ## Local-first philosophy
 
@@ -69,16 +69,22 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Portrait and landscape orientation
 - Configurable margins in millimeters
 - Responsive on-screen page scaling
+- Automatic pagination based on rendered browser layout
+- Manual page breaks using the Docmark block directive:
+
+  ```text
+  :::pagebreak
+  :::
+  ```
 
 Markdown state is temporary and resets when the page reloads.
 
-Automatic pagination, PDF export, printing, and persistence are not implemented.
+PDF export, printing, and persistence are not implemented.
 
 ## Initial roadmap
 
-1. Add automatic multi-page pagination.
-2. Implement client-side PDF export and printing.
-3. Add local file handling and persistence.
-4. Add optional advanced Markdown features and PWA/offline support.
+1. Implement client-side PDF export and printing.
+2. Add local file handling and persistence.
+3. Add optional advanced Markdown features and PWA/offline support.
 
 Planned capabilities include local files, IndexedDB, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { renderMarkdown } from "@/lib/markdown/render-markdown";
+import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
 import {
   getPageDimensions,
   type DocumentSettings,
@@ -12,21 +13,29 @@ type DocumentPreviewProps = {
   settings: DocumentSettings;
 };
 
-type PreviewScale = {
-  scale: number;
-  pageHeight: number;
-};
+const PX_PER_MM = 96 / 25.4;
 
 export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
   const [html, setHtml] = useState("");
-  const [error, setError] = useState(false);
-  const [previewScale, setPreviewScale] = useState<PreviewScale>({
-    scale: 1,
-    pageHeight: 0,
-  });
+  const [renderError, setRenderError] = useState(false);
+  const [paginationError, setPaginationError] = useState(false);
+  const [pages, setPages] = useState<PaginatedPage[]>([
+    { id: "page-1", html: "", isBlank: true, overflowPx: 0 },
+  ]);
+  const [scale, setScale] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const pageRef = useRef<HTMLElement>(null);
+  const firstPageRef = useRef<HTMLElement>(null);
+  const renderedMeasurementRef = useRef<HTMLDivElement>(null);
+  const measurementRef = useRef<HTMLDivElement>(null);
+  const paginationGeneration = useRef(0);
   const dimensions = getPageDimensions(settings.pageSize, settings.orientation);
+  const contentWidthMm =
+    dimensions.widthMm - settings.margins.left - settings.margins.right;
+  const contentHeightMm =
+    dimensions.heightMm - settings.margins.top - settings.margins.bottom;
+  const contentHeightPx = contentHeightMm * PX_PER_MM;
+  const physicalWidthPx = dimensions.widthMm * PX_PER_MM;
+  const physicalHeightPx = dimensions.heightMm * PX_PER_MM;
 
   useEffect(() => {
     let active = true;
@@ -35,13 +44,11 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
       .then((renderedHtml) => {
         if (active) {
           setHtml(renderedHtml);
-          setError(false);
+          setRenderError(false);
         }
       })
       .catch(() => {
-        if (active) {
-          setError(true);
-        }
+        if (active) setRenderError(true);
       });
 
     return () => {
@@ -50,35 +57,92 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
   }, [markdown]);
 
   useEffect(() => {
+    const content = measurementRef.current;
+    const renderedContent = renderedMeasurementRef.current;
+    if (!content || !renderedContent || renderError) return;
+
+    let active = true;
+    const generation = ++paginationGeneration.current;
+    let initialPaginationComplete = false;
+    let lastMeasurementHeight: number | null = null;
+    content.style.width = `${contentWidthMm}mm`;
+    renderedContent.style.width = `${contentWidthMm}mm`;
+    content.style.setProperty("--document-content-height", `${contentHeightMm}mm`);
+
+    const repaginate = () => {
+      if (!active || generation !== paginationGeneration.current) return;
+      try {
+        setPages(paginateDocument(renderedContent, content, contentHeightPx));
+        setPaginationError(false);
+      } catch {
+        setPaginationError(true);
+      }
+    };
+
+    // Track actual source layout changes (for example a late image load or a
+    // font metric change). The target used for trial measurements is separate,
+    // so pagination never observes or reacts to its own output.
+    const sourceObserver = new ResizeObserver(() => {
+      const height = renderedContent.getBoundingClientRect().height;
+      const changed =
+        lastMeasurementHeight !== null &&
+        Math.abs(height - lastMeasurementHeight) > 0.5;
+      lastMeasurementHeight = height;
+      if (changed && initialPaginationComplete) repaginate();
+    });
+    sourceObserver.observe(renderedContent);
+
+    // Font readiness is a one-shot browser signal, not a polling loop. Markdown
+    // and the editor remain usable while the browser finishes resolving fonts.
+    document.fonts.ready
+      .then(() => {
+        if (!active || generation !== paginationGeneration.current) return;
+        repaginate();
+        initialPaginationComplete = true;
+      })
+      .catch(() => {
+        if (active && generation === paginationGeneration.current) {
+          setPaginationError(true);
+        }
+      });
+
+    return () => {
+      active = false;
+      sourceObserver.disconnect();
+    };
+  }, [
+    html,
+    contentWidthMm,
+    contentHeightMm,
+    contentHeightPx,
+    settings.pageSize,
+    settings.orientation,
+    settings.margins.top,
+    settings.margins.right,
+    settings.margins.bottom,
+    settings.margins.left,
+    renderError,
+  ]);
+
+  useEffect(() => {
     const viewport = viewportRef.current;
-    const page = pageRef.current;
+    const page = firstPageRef.current;
     if (!viewport || !page) return;
 
     let active = true;
-
-    const measure = () => {
-      const physicalWidth = page.offsetWidth;
-      const pageHeight = page.offsetHeight;
-      if (!active || physicalWidth <= 0 || pageHeight <= 0) return;
-
-      const availableWidth = viewport.clientWidth;
-      const scale = Math.min(1, availableWidth / physicalWidth);
-
-      setPreviewScale((current) => {
-        if (
-          Math.abs(current.scale - scale) < 0.001 &&
-          Math.abs(current.pageHeight - pageHeight) < 1
-        ) {
-          return current;
-        }
-        return { scale, pageHeight };
-      });
+    const measureScale = () => {
+      const width = page.offsetWidth;
+      if (!active || width <= 0) return;
+      const nextScale = Math.min(1, viewport.clientWidth / width);
+      setScale((current) =>
+        Math.abs(current - nextScale) < 0.001 ? current : nextScale,
+      );
     };
 
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(measureScale);
     observer.observe(viewport);
     observer.observe(page);
-    measure();
+    measureScale();
 
     return () => {
       active = false;
@@ -86,15 +150,17 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
     };
   }, []);
 
-  const pageStyle = {
+  const pageStyle: CSSProperties = {
     width: `${dimensions.widthMm}mm`,
-    minHeight: `${dimensions.heightMm}mm`,
+    height: `${dimensions.heightMm}mm`,
     padding: `${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm`,
     marginLeft: `-${dimensions.widthMm / 2}mm`,
-    transform: `scale(${previewScale.scale})`,
+    transform: `scale(${scale})`,
     transformOrigin: "top center",
   };
-
+  const contentStyle = {
+    "--document-content-height": `${contentHeightMm}mm`,
+  } as CSSProperties;
   const marginSummary = `${settings.margins.top}/${settings.margins.right}/${settings.margins.bottom}/${settings.margins.left} mm`;
 
   return (
@@ -102,25 +168,57 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
       ref={viewportRef}
       className="preview-canvas flex min-h-0 flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-7"
     >
-      <div
-        className="page-stage mx-auto w-full shrink-0"
-        style={{ height: `${previewScale.pageHeight * previewScale.scale}px` }}
-      >
-        <article ref={pageRef} className="physical-page document-theme" style={pageStyle}>
-          {error ? (
-            <p role="status">
-              This document could not be rendered. Your Markdown is still available in the editor.
-            </p>
-          ) : (
-            // Only HTML returned by renderMarkdown, after rehype-sanitize, reaches this sink.
-            <div dangerouslySetInnerHTML={{ __html: html }} />
-          )}
-        </article>
+      <div className="flex w-full shrink-0 flex-col items-center gap-[18px]">
+        {pages.map((page, index) => (
+          <div
+            key={page.id}
+            className="page-stage shrink-0"
+            style={{
+              width: `${physicalWidthPx * scale}px`,
+              height: `${(physicalHeightPx + page.overflowPx) * scale}px`,
+            }}
+          >
+            <article
+              ref={index === 0 ? firstPageRef : undefined}
+              className={`physical-page${page.overflowPx > 0.5 ? " physical-page-overflow" : ""}`}
+              style={pageStyle}
+              aria-label={`Page ${index + 1}${page.isBlank ? ", blank" : ""}`}
+            >
+              <div
+                className="document-theme document-content"
+                style={contentStyle}
+                dangerouslySetInnerHTML={{ __html: page.html }}
+              />
+            </article>
+          </div>
+        ))}
       </div>
+
       <p className="page-caption mt-4 shrink-0 text-center font-mono text-[0.6875rem]">
         {settings.pageSize === "a4" ? "A4" : "Letter"} · {settings.orientation} ·{" "}
-        {dimensions.widthMm} × {dimensions.heightMm} mm · Margins {marginSummary}
+        {pages.length} {pages.length === 1 ? "page" : "pages"} · {dimensions.widthMm} × {dimensions.heightMm} mm · Margins {marginSummary}
       </p>
+      {(renderError || paginationError) && (
+        <p role="status" className="mt-2 shrink-0 text-center text-xs text-red-700 dark:text-red-300">
+          {renderError
+            ? "This document could not be rendered. Your Markdown is still available in the editor."
+            : "Pagination could not be completed. Your Markdown is still available in the editor."}
+        </p>
+      )}
+
+      <div className="measurement-layer" aria-hidden="true" inert>
+        <div
+          ref={renderedMeasurementRef}
+          className="document-theme document-content"
+          style={contentStyle}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        <div
+          ref={measurementRef}
+          className="document-theme document-content"
+          style={contentStyle}
+        />
+      </div>
     </div>
   );
 }
