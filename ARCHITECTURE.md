@@ -29,14 +29,34 @@ CodeMirror belongs to the browser-side input layer. It edits a Markdown string a
 
 ## Local document persistence
 
-`lib/document/model` defines the stored document shape: stable ID, title, Markdown, page settings, and creation/update timestamps. `lib/storage` uses the browser's IndexedDB API with a versioned `docmark` database, a `documents` object store, and metadata for the last active document ID. On first launch it creates a starter document; on later launches it restores the last active valid document, falling back to the most recently updated valid document.
+`lib/document/model` defines the stored document shape: stable ID, title, Markdown, page settings, and creation/update timestamps. `lib/storage` uses the browser's existing versioned `docmark` database and `documents` object store, plus metadata for the last active document ID. M5.2 requires no schema migration, so M5.1 records remain compatible. On first launch it creates the starter document; on later launches it restores the last active valid document, falling back to the most recently updated valid document.
 
-Autosaves are debounced and serialized so an older write cannot overtake a newer edit. Only source Markdown and document settings are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a backup or cross-device sync.
+The editor workspace holds one active document and a sorted list of lightweight document summaries. It supports create, switch, rename, duplicate, and delete. New documents start empty with default settings; duplicates copy the selected document's current Markdown and settings and get a new ID and timestamps. Deleting asks for confirmation, selects the most recently updated remaining document, or atomically creates a clean replacement when deleting the last document.
+
+Autosaves are debounced and serialized through one operation queue. Each save carries the immutable document snapshot and ID that originated it; ordinary saves do not change the last-active pointer. Switching flushes the pending save before loading and activating the target. Generation checks prevent stale asynchronous loads from replacing a later selection. Deletes invalidate a pending debounce, then run after earlier writes so an old save cannot recreate the deleted record. Rename writes a full latest snapshot, preserving concurrent Markdown/settings changes.
+
+Only source Markdown and document settings are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. CodeMirror is keyed by document ID, so switching documents creates a fresh editor history. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a filesystem backup or cross-device sync.
 
 ```text
-Editor state → 500 ms debounce → serialized IndexedDB write
-      ▲                                  │
-      └──── restore active document ─────┘
+                         IndexedDB
+                     │ list / load │
+                     ▼             ▲
+              Document Workspace  │
+              ┌───────────────┐    │
+              │ A  B  C  ...  │    │
+              └───────┬───────┘    │
+                      │ active     │
+                      ▼            │
+               Document State      │
+              title / Markdown     │
+                 / settings        │
+                      │            │
+          ┌───────────┴───────┐    │
+          ▼                   ▼    │
+      CodeMirror          Preview / Print
+          │
+          ▼
+   500 ms autosave ────────────────┘
 ```
 
 Document settings are a separate state path. Sanitized HTML and `DocumentSettings` meet only in `DocumentPreview`:
@@ -114,6 +134,7 @@ Markdown, images, and printed output are not sent to servers for core document f
 - **`components/document`** provides reusable document visuals that preview and export can share.
 - **`styles/print.css`** owns print-only UI exclusion and physical page presentation. A dynamic `@page` rule uses the dimensions already centralized in `lib/document/settings`.
 - **`lib/storage`** persists source documents and settings locally in IndexedDB; it does not store derived preview HTML or pagination results.
+- **`components/editor/document-switcher`** displays local document summaries by `updatedAt` descending and provides document management actions.
 
 The corresponding UI is grouped under `components/editor`, `components/preview`, `components/document`, and `components/ui`. Shared hooks, domain types, and document-specific styles belong in `hooks`, `types`, and `styles`. Directories will be added as implementation needs arise rather than kept empty.
 

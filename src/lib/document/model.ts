@@ -20,6 +20,11 @@ export type DocmarkDocument = {
   updatedAt: string;
 };
 
+export type DocmarkDocumentSummary = Pick<
+  DocmarkDocument,
+  "id" | "title" | "updatedAt"
+>;
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -142,4 +147,16 @@ export function normalizeStoredDocument(
     createdAt,
     updatedAt,
   };
+}
+
+/** Return only fields the document switcher needs. */
+export function normalizeStoredDocumentSummary(
+  value: unknown,
+): DocmarkDocumentSummary | null {
+  if (!isRecord(value) || typeof value.id !== "string" || value.id.trim() === "" || typeof value.title !== "string") {
+    return null;
+  }
+  const updatedAt = normalizeTimestamp(value.updatedAt);
+  if (!updatedAt) return null;
+  return { id: value.id, title: value.title, updatedAt };
 }

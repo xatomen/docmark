@@ -45,7 +45,7 @@ CodeMirror 6 → Markdown state → Markdown pipeline → Sanitized HTML → Pre
 ```
 
 - `src/app`: landing page, editor route, root layout, and global styles.
-- `src/components/editor`: CodeMirror input and the editor workspace state.
+- `src/components/editor`: CodeMirror input, document switcher, and editor workspace state.
 - `src/components/preview`: rendered document preview; it consumes sanitized HTML and does not parse Markdown.
 - `src/components/document`: reusable visual document representation shared by preview and export.
 - `src/components/ui`: generic interface components.
@@ -79,7 +79,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
 
-Documents and their page settings are saved automatically in IndexedDB on this browser and restored when Docmark opens. Clearing browser site data can remove them; they are not synced or backed up, and they are not shared with other browsers or devices. Use the Markdown editor's copy/paste workflow to move content until file open/save is implemented.
+The editor supports multiple local documents: create, switch, rename, duplicate, and delete. Markdown and page settings autosave to IndexedDB, and Docmark restores the last active document when it opens. IndexedDB is browser site storage, not a filesystem backup or sync service; clearing site data can remove documents, and other browsers or devices do not share them.
 
 ## Initial roadmap
 
