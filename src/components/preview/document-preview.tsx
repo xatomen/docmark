@@ -11,11 +11,16 @@ import {
 type DocumentPreviewProps = {
   markdown: string;
   settings: DocumentSettings;
+  onPaginationReady: (ready: boolean) => void;
 };
 
 const PX_PER_MM = 96 / 25.4;
 
-export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
+export function DocumentPreview({
+  markdown,
+  settings,
+  onPaginationReady,
+}: DocumentPreviewProps) {
   const [html, setHtml] = useState("");
   const [renderError, setRenderError] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
@@ -71,11 +76,14 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
 
     const repaginate = () => {
       if (!active || generation !== paginationGeneration.current) return;
+      onPaginationReady(false);
       try {
         setPages(paginateDocument(renderedContent, content, contentHeightPx));
         setPaginationError(false);
+        onPaginationReady(true);
       } catch {
         setPaginationError(true);
+        onPaginationReady(false);
       }
     };
 
@@ -103,6 +111,7 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
       .catch(() => {
         if (active && generation === paginationGeneration.current) {
           setPaginationError(true);
+          onPaginationReady(false);
         }
       });
 
@@ -121,6 +130,7 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
     settings.margins.right,
     settings.margins.bottom,
     settings.margins.left,
+    onPaginationReady,
     renderError,
   ]);
 
@@ -162,13 +172,15 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
     "--document-content-height": `${contentHeightMm}mm`,
   } as CSSProperties;
   const marginSummary = `${settings.margins.top}/${settings.margins.right}/${settings.margins.bottom}/${settings.margins.left} mm`;
+  const printPageStyle = `@page { size: ${dimensions.widthMm}mm ${dimensions.heightMm}mm; margin: 0; }`;
 
   return (
     <div
       ref={viewportRef}
       className="preview-canvas flex min-h-0 flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-7"
     >
-      <div className="flex w-full shrink-0 flex-col items-center gap-[18px]">
+      <style media="print">{printPageStyle}</style>
+      <div className="page-list flex w-full shrink-0 flex-col items-center gap-[18px]">
         {pages.map((page, index) => (
           <div
             key={page.id}
@@ -176,7 +188,9 @@ export function DocumentPreview({ markdown, settings }: DocumentPreviewProps) {
             style={{
               width: `${physicalWidthPx * scale}px`,
               height: `${(physicalHeightPx + page.overflowPx) * scale}px`,
-            }}
+              "--page-width": `${dimensions.widthMm}mm`,
+              "--page-height": `${dimensions.heightMm}mm`,
+            } as CSSProperties}
           >
             <article
               ref={index === 0 ? firstPageRef : undefined}

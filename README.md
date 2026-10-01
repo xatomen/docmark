@@ -1,10 +1,10 @@
 # Docmark
 
-Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized live preview, configurable physical pages, automatic pagination, and manual page breaks.
+Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized live preview, configurable physical pages, automatic pagination, manual page breaks, and browser-based printing.
 
 ## Local-first philosophy
 
-Document content stays in the user's browser during the editing workflow. Markdown is parsed, transformed, sanitized, and rendered locally without sending document content to a backend. Persistence and PDF export are not implemented yet.
+Document content stays in the user's browser during the editing and print workflow. Markdown is parsed, transformed, sanitized, paginated, and sent to the browser's native print engine locally. `Export PDF` opens the browser print dialog; the user can select **Save as PDF** there. Docmark does not generate or upload a PDF through a server.
 
 ## Stack
 
@@ -14,7 +14,7 @@ Document content stays in the user's browser during the editing workflow. Markdo
 - Tailwind CSS 4
 - ESLint 9
 
-PDF export and local-storage libraries have not been added yet.
+No PDF-generation or local-storage libraries are used. Browser printing is provided by the native print engine.
 
 The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
 
@@ -51,7 +51,6 @@ CodeMirror 6 → Markdown state → Markdown pipeline → Sanitized HTML → Pre
 - `src/components/ui`: generic interface components.
 - `src/lib/markdown`: parsing, AST, and Markdown transformations.
 - `src/lib/document`: document model and related transformations.
-- `src/lib/pdf`: client-side PDF export.
 - `src/lib/storage`: local persistence adapters.
 - `src/hooks`, `src/types`, and `src/styles`: shared React hooks, domain types, and document/print/theme styles as they become useful.
 
@@ -77,15 +76,14 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
   :::
   ```
 - Print-safe wrapping keeps long code lines, links, and technical identifiers within the page width. Tables stay inside the content area; wrapping increases document height and may increase the page count. Document pages intentionally avoid horizontal scrolling.
+- Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
+- Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
 
 Markdown state is temporary and resets when the page reloads.
 
-PDF export, printing, and persistence are not implemented.
-
 ## Initial roadmap
 
-1. Implement client-side PDF export and printing.
-2. Add local file handling and persistence.
-3. Add optional advanced Markdown features and PWA/offline support.
+1. Add local file handling and persistence.
+2. Add optional advanced Markdown features and PWA/offline support.
 
 Planned capabilities include local files, IndexedDB, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.

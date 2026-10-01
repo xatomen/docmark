@@ -1,0 +1,121 @@
+@media print {
+  html,
+  body {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body {
+    color: #282a27 !important;
+  }
+
+  .docmark-app {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #282a27 !important;
+  }
+
+  .app-header,
+  .editor-panel,
+  .preview-panel > :not(.preview-canvas) {
+    display: none !important;
+  }
+
+  .workspace-shell,
+  .preview-panel {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .preview-canvas {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .page-list {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    gap: 0 !important;
+  }
+
+  .page-stage {
+    position: relative !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    width: var(--page-width) !important;
+    height: var(--page-height) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .page-stage:not(:last-child) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .page-stage:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .physical-page {
+    position: relative !important;
+    inset: auto !important;
+    box-sizing: border-box !important;
+    width: var(--page-width) !important;
+    height: var(--page-height) !important;
+    margin: 0 !important;
+    transform: none !important;
+    transform-origin: initial !important;
+    overflow: hidden !important;
+    outline: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #282a27 !important;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .physical-page-overflow {
+    overflow: visible !important;
+  }
+
+  .measurement-layer,
+  .page-caption {
+    display: none !important;
+  }
+
+  .preview-canvas > :not(.page-list):not(style) {
+    display: none !important;
+  }
+
+  .document-theme {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

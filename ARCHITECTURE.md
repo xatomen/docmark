@@ -2,7 +2,7 @@
 
 ## Local-first
 
-The browser is the primary environment for document work. Markdown, images, and generated PDFs should remain on the user's device during the main workflow. The application does not need a document-processing backend.
+The browser is the primary environment for document work. Markdown, images, and print output remain on the user's device during the main workflow. The application does not need a document-processing backend.
 
 ## Data flow
 
@@ -21,7 +21,7 @@ The browser is the primary environment for document work. Markdown, images, and 
                │
                ▼
         ┌──────────────┐
-        │   Preview    │
+        │ Sanitized HTML │
         └──────────────┘
 ```
 
@@ -31,8 +31,10 @@ Document settings are a separate state path. Sanitized HTML and `DocumentSetting
 
 ```text
 CodeMirror → Markdown → Markdown pipeline → Sanitized HTML ─┐
-                                                            ├→ DocumentPreview → Physical page
+                                                            ├→ Measurement Layer → Pagination Engine → Page[]
 DocumentSettings ───────────────────────────────────────────┘
+                                                                                 ├→ Screen Preview
+                                                                                 └→ Print Layout → Browser Print Engine → Save as PDF
 ```
 
 ## Markdown data flow
@@ -54,7 +56,11 @@ HTML
    ↓
 Sanitized rendered content
    ↓
-Measurement layer → Pagination Engine → Page[] → Physical preview
+Measurement Layer → Pagination Engine → Page[]
+                                        ├→ Screen Preview (viewport scale)
+                                        └→ Print Layout (physical 1:1)
+                                             ↓
+                                        Browser Print Engine → Save as PDF
 ```
 
 The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React and CodeMirror. It turns Markdown into sanitized HTML. A small MDAST transform recognizes only the standalone Docmark page-break block and emits a semantic marker. The sanitize schema allows only that marker attribute on a `div`; the rest of the default sanitization policy remains in place. Inline mentions and fenced code remain ordinary content.
@@ -75,18 +81,26 @@ Every visible sheet has fixed physical width and height in millimeters and clips
 
 The renderer uses one print-safe wrapping policy inside the physical content width (`page width - left margin - right margin`). Long code lines use preserved whitespace with visual wrapping; inline code, links, hashes, identifiers, and table cells can break long unspaced tokens. Tables with up to six columns keep automatic sizing; wider tables use fixed column distribution after visual review showed it keeps headers and cells more consistent. Both layouts wrap cell content and stay at the available width. Images keep their aspect ratio and are constrained to the same width. These rules live in the shared document theme used by both the measurement layer and visible pages, so wrapping increases measured height and the existing pagination pass places the resulting fragments. Horizontal overflow is converted into vertical growth whenever possible. This physical layout behavior is independent of viewport preview scaling.
 
+## Screen preview and print layout
+
+The pagination engine produces the single source of truth, `Page[]`, from sanitized rendered content and the physical settings. The screen preview renders these pages with a viewport-dependent visual scale. Print CSS removes that transform and preview-only positioning, then renders the same pages at their physical width and height in millimeters. Printing does not run a second pagination pass.
+
+The `Export PDF` button waits until rendering and pagination have completed, then calls the browser's native `window.print()` API. A print-only `@page` rule is generated from `getPageDimensions`, so A4/Letter and portrait/landscape dimensions follow the current settings. Its margin is zero because Docmark already includes its configured margins in each physical page. Explicit breaks and blank pages are preserved because print receives the existing `Page[]` without reparsing Markdown.
+
+Print styles hide the editor, application header, controls, preview labels, canvas, and measurement layer. Each page box keeps its physical dimensions, avoids fragmentation, and uses a page break between pages without appending one after the final page. Browser-controlled headers and footers may still be enabled in the native print dialog and are outside Docmark's control. Background printing depends on browser settings.
+
 ## Privacy
 
-Markdown, images, and PDFs must not be sent to servers for core document features. The editor currently holds Markdown in React state and runs parsing, transformation, sanitization, and preview rendering in the browser. Any future network feature must remain separate from this core workflow.
+Markdown, images, and printed output are not sent to servers for core document features. The editor holds Markdown in React state and runs parsing, transformation, sanitization, measurement, pagination, and print preparation in the browser. The user chooses a destination such as Save as PDF in the browser's native print dialog. Any future network feature must remain separate from this core workflow.
 
 ## Separation of concerns
 
 - **`lib/markdown`** owns Markdown parsing and transformation through MDAST/HAST into sanitized HTML. It does not depend on React.
 - **`lib/document/settings`** defines page size, orientation, millimeter margins, dimensions, and margin validation. It does not depend on Markdown.
 - **`lib/document/pagination`** paginates already-rendered DOM fragments from browser measurements. It does not parse Markdown or depend on React.
-- **`components/preview`** owns the measurement layer, page rendering, status, and responsive scaling. It passes sanitized HTML and physical settings to the pagination engine.
+- **`components/preview`** owns the measurement layer, page rendering, pagination readiness, responsive scaling, and print layout dimensions. It passes sanitized HTML and physical settings to the pagination engine.
 - **`components/document`** provides reusable document visuals that preview and export can share.
-- **`lib/pdf`** will export the document model client-side.
+- **`styles/print.css`** owns print-only UI exclusion and physical page presentation. A dynamic `@page` rule uses the dimensions already centralized in `lib/document/settings`.
 - **`lib/storage`** will persist user documents locally through browser storage or file APIs.
 
 The corresponding UI is grouped under `components/editor`, `components/preview`, `components/document`, and `components/ui`. Shared hooks, domain types, and document-specific styles belong in `hooks`, `types`, and `styles`. Directories will be added as implementation needs arise rather than kept empty.
@@ -97,7 +111,7 @@ These are planned and are not implemented yet:
 
 - Document themes
 - Markdown syntax extensions beyond GFM
-- PDF export and printing
+- Direct PDF generation and print options beyond the browser's native dialog
 - Local files and IndexedDB persistence
 - Mermaid diagrams and KaTeX math
 - Front matter and table of contents
