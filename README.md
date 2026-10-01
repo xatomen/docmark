@@ -14,7 +14,7 @@ Document content stays in the user's browser during the editing and print workfl
 - Tailwind CSS 4
 - ESLint 9
 
-No PDF-generation or local-storage libraries are used. Browser printing is provided by the native print engine.
+No PDF-generation or local-storage libraries are used. Documents are stored in the browser's native IndexedDB; browser printing is provided by the native print engine.
 
 The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
 
@@ -51,7 +51,7 @@ CodeMirror 6 → Markdown state → Markdown pipeline → Sanitized HTML → Pre
 - `src/components/ui`: generic interface components.
 - `src/lib/markdown`: parsing, AST, and Markdown transformations.
 - `src/lib/document`: document model and related transformations.
-- `src/lib/storage`: local persistence adapters.
+- `src/lib/storage`: versioned IndexedDB persistence for documents and the active document ID.
 - `src/hooks`, `src/types`, and `src/styles`: shared React hooks, domain types, and document/print/theme styles as they become useful.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planned capabilities.
@@ -79,11 +79,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
 
-Markdown state is temporary and resets when the page reloads.
+Documents and their page settings are saved automatically in IndexedDB on this browser and restored when Docmark opens. Clearing browser site data can remove them; they are not synced or backed up, and they are not shared with other browsers or devices. Use the Markdown editor's copy/paste workflow to move content until file open/save is implemented.
 
 ## Initial roadmap
 
-1. Add local file handling and persistence.
+1. Add local Markdown file open/save.
 2. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include local files, IndexedDB, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.
+Planned capabilities include local Markdown file open/save, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.

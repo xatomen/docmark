@@ -25,7 +25,19 @@ The browser is the primary environment for document work. Markdown, images, and 
         └──────────────┘
 ```
 
-CodeMirror belongs to the browser-side input layer. It edits a Markdown string and does not participate in parsing, sanitization, or document rendering. The editor workspace keeps the current Markdown in React state and passes it to the preview pipeline.
+CodeMirror belongs to the browser-side input layer. It edits a Markdown string and does not participate in parsing, sanitization, or document rendering. The editor workspace restores a document from IndexedDB before mounting the editor, keeps the active document in React state, and passes its Markdown to the preview pipeline. Changes to Markdown or page settings are saved locally after a short debounce.
+
+## Local document persistence
+
+`lib/document/model` defines the stored document shape: stable ID, title, Markdown, page settings, and creation/update timestamps. `lib/storage` uses the browser's IndexedDB API with a versioned `docmark` database, a `documents` object store, and metadata for the last active document ID. On first launch it creates a starter document; on later launches it restores the last active valid document, falling back to the most recently updated valid document.
+
+Autosaves are debounced and serialized so an older write cannot overtake a newer edit. Only source Markdown and document settings are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a backup or cross-device sync.
+
+```text
+Editor state → 500 ms debounce → serialized IndexedDB write
+      ▲                                  │
+      └──── restore active document ─────┘
+```
 
 Document settings are a separate state path. Sanitized HTML and `DocumentSettings` meet only in `DocumentPreview`:
 
@@ -101,7 +113,7 @@ Markdown, images, and printed output are not sent to servers for core document f
 - **`components/preview`** owns the measurement layer, page rendering, pagination readiness, responsive scaling, and print layout dimensions. It passes sanitized HTML and physical settings to the pagination engine.
 - **`components/document`** provides reusable document visuals that preview and export can share.
 - **`styles/print.css`** owns print-only UI exclusion and physical page presentation. A dynamic `@page` rule uses the dimensions already centralized in `lib/document/settings`.
-- **`lib/storage`** will persist user documents locally through browser storage or file APIs.
+- **`lib/storage`** persists source documents and settings locally in IndexedDB; it does not store derived preview HTML or pagination results.
 
 The corresponding UI is grouped under `components/editor`, `components/preview`, `components/document`, and `components/ui`. Shared hooks, domain types, and document-specific styles belong in `hooks`, `types`, and `styles`. Directories will be added as implementation needs arise rather than kept empty.
 
@@ -112,7 +124,7 @@ These are planned and are not implemented yet:
 - Document themes
 - Markdown syntax extensions beyond GFM
 - Direct PDF generation and print options beyond the browser's native dialog
-- Local files and IndexedDB persistence
+- Local Markdown file open/save
 - Mermaid diagrams and KaTeX math
 - Front matter and table of contents
 - PWA and offline support
