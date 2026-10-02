@@ -86,6 +86,8 @@ describe("portable Markdown front matter", () => {
       orientation: "portrait",
       margins: { top: 15, right: 20, bottom: 20, left: 20 },
       pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+      header: { enabled: false, text: "", alignment: "left" },
+      footer: { enabled: false, text: "", alignment: "left" },
     });
     expect(parsed.markdown).toBe("# Report");
     expect(parsed.portableMarkdown.includeDocmarkSettings).toBe(true);
@@ -220,6 +222,38 @@ describe("portable Markdown front matter", () => {
     expect(saved).toContain("startAt: 5");
   });
 
+  it("parses, validates, and serializes header/footer settings as portable v1 metadata", () => {
+    const source = [
+      "---", "docmark:", "  version: 1", "  header:", "    enabled: true",
+      "    text: Architecture Report", "    alignment: center", "    futureStyle: compact",
+      "  footer:", "    enabled: true", "    text: Internal use only", "    alignment: right",
+      "---", "# Body",
+    ].join("\n");
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.header).toEqual({ enabled: true, text: "Architecture Report", alignment: "center" });
+    expect(parsed.settings.footer).toEqual({ enabled: true, text: "Internal use only", alignment: "right" });
+    const document = asDocument(source);
+    document.settings.footer.text = "Confidential";
+    const saved = serializeMarkdownFile(document);
+    expect(saved).toContain("futureStyle: compact");
+    expect(saved).toContain("text: Confidential");
+    expect(saved).toContain("version: 1");
+
+    document.portableMarkdown.includeDocmarkSettings = false;
+    expect(serializeMarkdownFile(document)).not.toContain("header:");
+    expect(serializeMarkdownFile(document)).not.toContain("footer:");
+  });
+
+  it("defaults partial decoration metadata and validates each field independently", () => {
+    const partial = parseMarkdownFile("---\ndocmark:\n  version: 1\n  header:\n    enabled: true\n    text: Architecture Report\n---\n# Body");
+    expect(partial.settings.header).toEqual({ enabled: true, text: "Architecture Report", alignment: "left" });
+    expect(partial.settings.footer).toEqual(DEFAULT_DOCUMENT_SETTINGS.footer);
+    const invalid = parseMarkdownFile("---\ndocmark:\n  version: 1\n  header:\n    enabled: banana\n    text:\n      object: invalid\n    alignment: sideways\n  footer:\n    enabled: true\n    text: Kept\n    alignment: right\n---\n# Body");
+    expect(invalid.settings.header).toEqual(DEFAULT_DOCUMENT_SETTINGS.header);
+    expect(invalid.settings.footer).toEqual({ enabled: true, text: "Kept", alignment: "right" });
+    expect(invalid.portableMarkdown.status).toBe("invalid-settings");
+  });
+
   it.each([
     ["missing version", "docmark:\n  page:\n    size: Letter", "missing-version"],
     ["future version", "docmark:\n  version: 99\n  futuristic: true", "unsupported-version"],
@@ -253,6 +287,8 @@ describe("portable Markdown front matter", () => {
       orientation: "landscape",
       margins: { top: 15, right: 20, bottom: 15, left: 20 },
       pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+      header: { enabled: false, text: "", alignment: "left" },
+      footer: { enabled: false, text: "", alignment: "left" },
     };
     const portable = serializeMarkdownFile(document);
 

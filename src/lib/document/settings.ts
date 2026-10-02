@@ -17,11 +17,21 @@ export type PageNumberSettings = {
   startAt: number;
 };
 
+export type DecorationAlignment = "left" | "center" | "right";
+
+export type HeaderFooterSettings = {
+  enabled: boolean;
+  text: string;
+  alignment: DecorationAlignment;
+};
+
 export type DocumentSettings = {
   pageSize: PageSize;
   orientation: PageOrientation;
   margins: PageMargins;
   pageNumbers: PageNumberSettings;
+  header: HeaderFooterSettings;
+  footer: HeaderFooterSettings;
 };
 
 export type PageDimensions = {
@@ -34,7 +44,13 @@ export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
   orientation: "portrait",
   margins: { top: 20, right: 20, bottom: 20, left: 20 },
   pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+  header: { enabled: false, text: "", alignment: "left" },
+  footer: { enabled: false, text: "", alignment: "left" },
 };
+
+export function isDecorationAlignment(value: unknown): value is DecorationAlignment {
+  return value === "left" || value === "center" || value === "right";
+}
 
 export function isPageNumberPosition(value: unknown): value is PageNumberPosition {
   return value === "bottom-left" || value === "bottom-center" || value === "bottom-right";

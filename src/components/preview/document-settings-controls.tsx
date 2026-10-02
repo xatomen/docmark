@@ -5,6 +5,7 @@ import {
   getMarginValidationError,
   getPageDimensions,
   isPageNumberPosition,
+  isDecorationAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
@@ -205,6 +206,60 @@ export function DocumentSettingsControls({
           />
         </label>
       </fieldset>
+      {(["header", "footer"] as const).map((key) => {
+        const label = key === "header" ? "Header" : "Footer";
+        const decoration = settings[key];
+        return (
+          <fieldset key={key} className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
+            <legend className="px-1">{label}</legend>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id={`show-${key}`}
+                aria-label={`Show ${key}`}
+                checked={decoration.enabled}
+                onChange={(event) => onChange({
+                  ...settings,
+                  [key]: { ...decoration, enabled: event.target.checked },
+                })}
+                className="accent-accent"
+              />
+              <label htmlFor={`show-${key}`}>Show {key}</label>
+            </div>
+            <label className="flex items-center gap-2">
+              Text
+              <textarea
+                aria-label={`${label} text`}
+                rows={1}
+                value={decoration.text}
+                disabled={!decoration.enabled}
+                onChange={(event) => onChange({
+                  ...settings,
+                  [key]: { ...decoration, text: event.target.value },
+                })}
+                className="min-h-8 w-56 resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              Alignment
+              <select
+                aria-label={`${label} alignment`}
+                value={decoration.alignment}
+                disabled={!decoration.enabled}
+                onChange={(event) => {
+                  if (!isDecorationAlignment(event.target.value)) return;
+                  onChange({ ...settings, [key]: { ...decoration, alignment: event.target.value } });
+                }}
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          </fieldset>
+        );
+      })}
       {metadataWarning && (
         <p role="status" className="basis-full text-xs text-amber-700 dark:text-amber-300">
           {metadataWarning}

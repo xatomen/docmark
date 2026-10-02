@@ -3,6 +3,7 @@ import {
   getMarginValidationError,
   getPageDimensions,
   isPageNumberPosition,
+  isDecorationAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
@@ -81,6 +82,8 @@ function copySettings(settings: DocumentSettings): DocumentSettings {
     orientation: settings.orientation,
     margins: { ...settings.margins },
     pageNumbers: { ...settings.pageNumbers },
+    header: { ...settings.header },
+    footer: { ...settings.footer },
   };
 }
 
@@ -158,7 +161,17 @@ function normalizeSettings(value: unknown): DocumentSettings {
       : defaults.pageNumbers.startAt,
   };
 
-  return { pageSize, orientation, margins, pageNumbers };
+  const normalizeDecoration = (key: "header" | "footer") => {
+    const raw = isRecord(source[key]) ? source[key] : {};
+    const fallback = defaults[key];
+    return {
+      enabled: typeof raw.enabled === "boolean" ? raw.enabled : fallback.enabled,
+      text: typeof raw.text === "string" ? raw.text : fallback.text,
+      alignment: isDecorationAlignment(raw.alignment) ? raw.alignment : fallback.alignment,
+    };
+  };
+
+  return { pageSize, orientation, margins, pageNumbers, header: normalizeDecoration("header"), footer: normalizeDecoration("footer") };
 }
 
 /** Build a document on the client; call only after browser initialization. */

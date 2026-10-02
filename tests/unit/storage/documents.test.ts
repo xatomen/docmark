@@ -71,6 +71,8 @@ describe("IndexedDB document persistence", () => {
         orientation: "landscape",
         margins: { top: 17, right: 19, bottom: 21, left: 23 },
         pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
+        header: { enabled: true, text: "Header", alignment: "center" },
+        footer: { enabled: true, text: "Footer", alignment: "right" },
       },
     );
 

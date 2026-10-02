@@ -207,8 +207,11 @@ export function DocumentPreview({
               <PageDecorations
                 pageIndex={index}
                 settings={settings.pageNumbers}
+                header={settings.header}
+                footer={settings.footer}
                 leftMarginMm={settings.margins.left}
                 rightMarginMm={settings.margins.right}
+                topMarginMm={settings.margins.top}
                 bottomMarginMm={settings.margins.bottom}
               />
             </article>

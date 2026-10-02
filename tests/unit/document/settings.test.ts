@@ -4,12 +4,19 @@ import {
   getPageDimensions,
   getPageNumber,
   isPageNumberPosition,
+  isDecorationAlignment,
   isValidPageNumberStartAt,
   DEFAULT_DOCUMENT_SETTINGS,
   type PageSize,
 } from "@/lib/document/settings";
 
 describe("physical page settings", () => {
+  it("defaults headers and footers off with empty left-aligned text", () => {
+    expect(DEFAULT_DOCUMENT_SETTINGS.header).toEqual({ enabled: false, text: "", alignment: "left" });
+    expect(DEFAULT_DOCUMENT_SETTINGS.footer).toEqual({ enabled: false, text: "", alignment: "left" });
+    expect(["left", "center", "right"].every(isDecorationAlignment)).toBe(true);
+    expect(isDecorationAlignment("top")).toBe(false);
+  });
   it("defaults page numbers off, centered, and starting at one", () => {
     expect(DEFAULT_DOCUMENT_SETTINGS.pageNumbers).toEqual({
       enabled: false,

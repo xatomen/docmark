@@ -10,9 +10,11 @@ import {
   getMarginValidationError,
   getPageDimensions,
   isPageNumberPosition,
+  isDecorationAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
+  type HeaderFooterSettings,
   type PageMargins,
 } from "@/lib/document/settings";
 
@@ -134,7 +136,22 @@ function readSettings(docmark: Record<string, unknown>): {
   if (Object.hasOwn(rawPageNumbers, "enabled") && typeof rawPageNumbers.enabled !== "boolean") invalid = true;
   if (Object.hasOwn(rawPageNumbers, "position") && !isPageNumberPosition(rawPageNumbers.position)) invalid = true;
   if (Object.hasOwn(rawPageNumbers, "startAt") && !isValidPageNumberStartAt(rawPageNumbers.startAt)) invalid = true;
-  return { settings: { pageSize, orientation, margins, pageNumbers }, invalid };
+  const readDecoration = (key: "header" | "footer"): HeaderFooterSettings => {
+    const raw = docmark[key];
+    if (Object.hasOwn(docmark, key) && !isRecord(raw)) {
+      invalid = true;
+      return { ...defaults[key] };
+    }
+    const value = isRecord(raw) ? raw : {};
+    const enabled = typeof value.enabled === "boolean" ? value.enabled : defaults[key].enabled;
+    const text = typeof value.text === "string" ? value.text : defaults[key].text;
+    const alignment = isDecorationAlignment(value.alignment) ? value.alignment : defaults[key].alignment;
+    if (Object.hasOwn(value, "enabled") && typeof value.enabled !== "boolean") invalid = true;
+    if (Object.hasOwn(value, "text") && typeof value.text !== "string") invalid = true;
+    if (Object.hasOwn(value, "alignment") && !isDecorationAlignment(value.alignment)) invalid = true;
+    return { enabled, text, alignment };
+  };
+  return { settings: { pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer") }, invalid };
 }
 
 export function getPortableMarkdownWarning(metadata: PortableMarkdownMetadata): string | null {
@@ -264,6 +281,8 @@ function getDocumentSnapshot(document: Pick<DocmarkDocument, "settings">) {
       orientation: document.settings.orientation,
       margins: { ...document.settings.margins },
     },
+    header: { ...document.settings.header },
+    footer: { ...document.settings.footer },
   };
 }
 
@@ -276,7 +295,13 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.margins.left === right.margins.left &&
     left.pageNumbers.enabled === right.pageNumbers.enabled &&
     left.pageNumbers.position === right.pageNumbers.position &&
-    left.pageNumbers.startAt === right.pageNumbers.startAt;
+    left.pageNumbers.startAt === right.pageNumbers.startAt &&
+    left.header.enabled === right.header.enabled &&
+    left.header.text === right.header.text &&
+    left.header.alignment === right.header.alignment &&
+    left.footer.enabled === right.footer.enabled &&
+    left.footer.text === right.footer.text &&
+    left.footer.alignment === right.footer.alignment;
 }
 
 function getYamlMap(document: ReturnType<typeof parseDocument>, key: string): YAMLMap {
@@ -307,6 +332,12 @@ function updateDocmarkNamespace(
   pageNumbers.set("enabled", settings.pageNumbers.enabled);
   pageNumbers.set("position", settings.pageNumbers.position);
   pageNumbers.set("startAt", settings.pageNumbers.startAt);
+  for (const key of ["header", "footer"] as const) {
+    const decoration = getYamlMapFromMap(yamlDocument, docmark, key);
+    decoration.set("enabled", settings[key].enabled);
+    decoration.set("text", settings[key].text);
+    decoration.set("alignment", settings[key].alignment);
+  }
 }
 
 function getYamlMapFromMap(

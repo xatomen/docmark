@@ -116,6 +116,8 @@ The **Include Docmark settings in Markdown** option is off for new and ordinary 
 
 Page numbers are optional and default to off. They are physical page decorations, so enabling them does not add Markdown or change pagination. Supported positions are bottom-left (aligned with the content area's left edge), bottom-center (centered on the physical page), and bottom-right (aligned with the content area's right edge). Vertically, the number is centered within the bottom margin when space allows and remains safely inset from the physical page edge for very small margins. `startAt` is a positive integer. Numbers are shared by preview and browser print/PDF, scale with the preview, and are saved in IndexedDB. When portable settings are enabled, the same settings are stored under `docmark.pageNumbers`; otherwise they stay local to the browser document.
 
+Optional Headers and Footers are plain text physical page decorations, disabled by default. Each can be aligned left, center, or right independently. Text is displayed literally (including characters such as `<script>` and `{page}`), supports line breaks, and wraps inside the page. They appear in Preview and the same browser Print/PDF page DOM, persist in IndexedDB, and do not add Markdown or affect pagination. Footer and page numbers use left/center/right slots; when both request the same slot they stack vertically. Portable settings store them under `docmark.header` and `docmark.footer` when **Include Docmark settings in Markdown** is on.
+
 ```yaml
 ---
 docmark:
@@ -124,6 +126,14 @@ docmark:
     enabled: true
     position: bottom-center
     startAt: 1
+  header:
+    enabled: true
+    text: Architecture Report
+    alignment: center
+  footer:
+    enabled: true
+    text: Internal use only
+    alignment: left
 ---
 ```
 

@@ -99,6 +99,8 @@ function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSna
       ...document.settings,
       margins: { ...document.settings.margins },
       pageNumbers: { ...document.settings.pageNumbers },
+      header: { ...document.settings.header },
+      footer: { ...document.settings.footer },
     },
     portableMarkdown: { ...document.portableMarkdown },
   };
@@ -114,7 +116,13 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.margins.left === right.margins.left &&
     left.pageNumbers.enabled === right.pageNumbers.enabled &&
     left.pageNumbers.position === right.pageNumbers.position &&
-    left.pageNumbers.startAt === right.pageNumbers.startAt
+    left.pageNumbers.startAt === right.pageNumbers.startAt &&
+    left.header.enabled === right.header.enabled &&
+    left.header.text === right.header.text &&
+    left.header.alignment === right.header.alignment &&
+    left.footer.enabled === right.footer.enabled &&
+    left.footer.text === right.footer.text &&
+    left.footer.alignment === right.footer.alignment
   );
 }
 

@@ -26,6 +26,8 @@ describe("DocmarkDocument model", () => {
       orientation: "landscape",
       margins: { top: 17, right: 19, bottom: 21, left: 23 },
       pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
+      header: { enabled: true, text: "Header", alignment: "center" },
+      footer: { enabled: true, text: "Footer", alignment: "right" },
     }, "Quarterly report");
     source.createdAt = "2000-01-01T00:00:00.000Z";
     source.updatedAt = "2000-01-02T00:00:00.000Z";
@@ -48,6 +50,10 @@ describe("DocmarkDocument model", () => {
     expect(duplicate.settings.margins).not.toBe(source.settings.margins);
     expect(duplicate.settings.pageNumbers).toEqual(source.settings.pageNumbers);
     expect(duplicate.settings.pageNumbers).not.toBe(source.settings.pageNumbers);
+    expect(duplicate.settings.header).toEqual(source.settings.header);
+    expect(duplicate.settings.header).not.toBe(source.settings.header);
+    expect(duplicate.settings.footer).toEqual(source.settings.footer);
+    expect(duplicate.settings.footer).not.toBe(source.settings.footer);
     expect(duplicate.portableMarkdown).toEqual(source.portableMarkdown);
     expect(duplicate.portableMarkdown).not.toBe(source.portableMarkdown);
     expect("fileHandle" in duplicate).toBe(false);
@@ -92,5 +98,18 @@ describe("DocmarkDocument model", () => {
       position: "bottom-center",
       startAt: 1,
     });
+  });
+
+  it("defaults and validates decoration fields for older or malformed records", () => {
+    const now = "2024-01-02T00:00:00.000Z";
+    const old = normalizeStoredDocument({ id: "old", title: "Old", markdown: "# Old", createdAt: now, updatedAt: now });
+    expect(old?.settings.header).toEqual(DEFAULT_DOCUMENT_SETTINGS.header);
+    expect(old?.settings.footer).toEqual(DEFAULT_DOCUMENT_SETTINGS.footer);
+    const malformed = normalizeStoredDocument({
+      id: "partial", title: "Partial", markdown: "", createdAt: now, updatedAt: now,
+      settings: { header: { enabled: true, text: { unsafe: true }, alignment: "sideways" }, footer: { enabled: "yes", text: "safe", alignment: "right" } },
+    });
+    expect(malformed?.settings.header).toEqual({ enabled: true, text: "", alignment: "left" });
+    expect(malformed?.settings.footer).toEqual({ enabled: false, text: "safe", alignment: "right" });
   });
 });

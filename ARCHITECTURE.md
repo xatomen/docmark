@@ -189,7 +189,21 @@ The `lib/markdown` pipeline is asynchronous, local to the browser during editing
 
 `DocumentPreview` combines sanitized HTML with these settings and the M3.2 pagination engine. The engine receives already-rendered DOM, never Markdown. It computes the available content box from the shared physical dimensions and margins, then measures fragments in an offscreen layout layer with the same width, document theme, typography, and spacing as the visible page content. The layer remains in browser layout, is hidden visually, and is marked `aria-hidden` and inert.
 
-Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer. M6.2 currently places only an optional page number in this layer. Its display value is derived as `startAt + physical page index`, so manual breaks and empty physical pages count naturally. **Page numbers do not participate in pagination measurement.** The bottom decoration area has height `max(bottom margin, 10 mm)` and centers the full page-number line box. Its center is therefore `max(bottom margin / 2, 5 mm)` from the physical bottom: normal margins center within the margin, while small margins retain a safe physical inset. The line box remains inside the sheet; its vertical placement does not change user margins or trigger repagination. Bottom-left and bottom-right align with the content area's edges; bottom-center aligns with the physical page center.
+Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer:
+
+```text
+Physical Page
+├── Top Decoration Area
+│   └── Header
+├── Content Area
+└── Bottom Decoration Area
+    ├── Footer
+    └── Page Number
+```
+
+**Page decorations do not participate in pagination measurement.** The top decoration area has height `max(top margin, 10 mm)` and centers its text, so its center is `max(top margin / 2, 5 mm)` from the physical top. The bottom decoration area reuses the existing M6.2.1 geometry, `max(bottom margin, 10 mm)`, and centers its contents. Neither area changes document margins, content dimensions, or page count. Left/right alignment follows the content area's edges; center alignment follows the physical page center. Text wraps and breaks long tokens inside its slot.
+
+Header/footer alignment and page number positions map to three slots: `LEFT | CENTER | RIGHT`. Separate slots render on one line where possible. When Footer and Page Number target the same slot, the slot stacks Footer above the number; neither decoration hides the other or causes repagination. React renders their values as plain text. The same physical page DOM serves preview and print, including blank pages and manually broken pages.
 
 ```text
 Pagination Engine
