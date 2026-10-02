@@ -35,7 +35,7 @@ The editor workspace holds one active document and a sorted list of lightweight 
 
 Autosaves are debounced and serialized through one operation queue. Each save carries the immutable document snapshot and ID that originated it; ordinary saves do not change the last-active pointer. Switching flushes the pending save before loading and activating the target. Generation checks prevent stale asynchronous loads from replacing a later selection. Deletes invalidate a pending debounce, then run after earlier writes so an old save cannot recreate the deleted record. Rename writes a full latest snapshot, preserving concurrent Markdown/settings changes.
 
-The Markdown body, document settings, portable preference and raw Front Matter source are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. CodeMirror is keyed by document ID, so switching documents creates a fresh editor history. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a filesystem backup or cross-device sync.
+The Markdown body, document settings, portable preference and raw Front Matter source are stored; sanitized HTML, generated Table of Contents rows and paginated `Page[]` are derived again in the browser. CodeMirror is keyed by document ID, so switching documents creates a fresh editor history. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a filesystem backup or cross-device sync.
 
 ```text
                          IndexedDB
@@ -76,7 +76,7 @@ DocumentSettings ─────────────────────
 ```text
 Markdown string
    ↓
-remark-parse + remark-gfm + Docmark page-break transform
+remark-parse + remark-gfm + Docmark directive transform
    ↓
 MDAST
    ↓
@@ -181,7 +181,19 @@ Docmark title and filename are independent. Rename preserves the association wit
 
 Imported files enter the same Markdown pipeline as editor content. The existing sanitization boundary remains in place, and Markdown is never executed or uploaded. File access is limited to files explicitly selected by the user; there is no backend, upload, cloud storage, filesystem watching, or external-change reload.
 
-The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React and CodeMirror. It turns Markdown into sanitized HTML. A small MDAST transform recognizes only the standalone Docmark page-break block and emits a semantic marker. The sanitize schema allows only that marker attribute on a `div`; the rest of the default sanitization policy remains in place. Inline mentions and fenced code remain ordinary content.
+The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React and CodeMirror. It turns Markdown into sanitized HTML. A small MDAST transform recognizes standalone `:::pagebreak` and `:::toc` blocks and emits semantic markers. The sanitize schema allows only those marker attributes on `div`; when a TOC is present, source H1–H3 nodes also receive generated internal identities through the sanitizer's narrow heading attribute allowlist. Raw HTML cannot forge these identities. Inline mentions and fenced code remain ordinary content.
+
+## Automatic Table of Contents
+
+The source directive `:::toc` followed by `:::` becomes a semantic block marker during Markdown rendering. The marker remains in the editable Markdown and file representation; generated rows are derived DOM and never enter autosave or Markdown serialization. The first marker in source order is effective. Further markers render as empty blocks. The index title is the fixed English text “Table of Contents”; custom titles and localization are outside the current feature scope.
+
+The Markdown pipeline tags non-empty H1–H3 headings in AST order with unique internal IDs, including duplicate labels. Visible sanitized heading text is copied with `textContent` into TOC rows, so inline emphasis, code and links become plain text and cannot inject markup. Empty headings and H4–H6 are omitted. Each row has a measured label, CSS leader and page number; document typography supplies its font metrics while TOC layout keeps its own row alignment and indentation.
+
+The existing measurement and pagination path lays out the generated TOC. The Pagination Engine retains heading IDs on each physical `Page[]` entry, including headings nested in a fragment, and maps them to one-based physical page positions. Blank pages and manual page breaks therefore count. The mapping scan is linear in the returned page fragments and heading IDs per pass, with at most five passes when a TOC exists. These numbers are independent of optional page-number decorations and their `startAt` setting; decorations remain outside pagination measurement.
+
+TOC page values can change the TOC's dimensions, so `DocumentPreview` reruns the existing paginator against the same measurement DOM until the heading-page mapping matches the values used to render the TOC. It allows at most five synchronous passes and stops if a mapping repeats. On a cycle or the pass limit, it keeps the last fully rendered pagination result, so the preview and print DOM agree and work remains bounded. Documents without a TOC use the existing single pagination pass. The current font must be ready before the TOC loop begins, and the same stale-generation guards keep old content/layout work from becoming printable.
+
+TOC blocks are split by whole rows across physical pages. The title appears only on the first TOC page and stays with the first row when it fits; a row taller than the available page space is preserved as an overflow block. Source headings are treated as indivisible blocks so pagination does not split a heading.
 
 ## Physical document layout
 
@@ -223,7 +235,7 @@ Document Font Registry
 
 Font-load results are scoped to the selected family and size key and guarded by the existing effect cleanup and pagination generation counter. If a user changes to Georgia while Montserrat is loading, the stale Montserrat completion cannot mark the current selection ready or start pagination. Rapid switching reuses an in-flight/successful local load but only the latest selection may paginate. Front Matter continues to accept only known registry IDs; URLs and CSS are never accepted as font settings. Montserrat is licensed under SIL Open Font License 1.1; the unchanged upstream license is included beside the assets.
 
-Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer:
+Pagination returns `Page[]` containing rendered document fragments, including derived TOC content. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer:
 
 ```text
 Physical Page
@@ -311,5 +323,4 @@ These are planned and are not implemented yet:
 - Markdown syntax extensions beyond GFM
 - Direct PDF generation and print options beyond the browser's native dialog
 - Mermaid diagrams and KaTeX math
-- Front matter and table of contents
 - PWA and offline support

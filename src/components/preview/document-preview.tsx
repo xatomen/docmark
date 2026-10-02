@@ -7,6 +7,11 @@ import { PageDecorations } from "@/components/document/page-decorations";
 import { ensureDocumentFontReady } from "@/lib/document/font-loading";
 import { getDocumentFontDefinition } from "@/lib/document/font-registry";
 import {
+  getPhysicalHeadingPages,
+  stabilizeTocPagination,
+  type TocPageMap,
+} from "@/lib/document/toc";
+import {
   getDocumentFontStack,
   getPageDimensions,
   type DocumentSettings,
@@ -20,6 +25,69 @@ type DocumentPreviewProps = {
 
 const PX_PER_MM = 96 / 25.4;
 
+type TocHeading = { id: string; level: number; label: string };
+
+function visibleHeadingText(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  if (node instanceof HTMLBRElement) return " ";
+  if (node instanceof HTMLImageElement) return node.alt;
+  return Array.from(node.childNodes, visibleHeadingText).join("");
+}
+
+function readTocHeadings(renderedContent: HTMLElement): TocHeading[] {
+  return Array.from(
+    renderedContent.querySelectorAll<HTMLElement>("h1[data-docmark-heading-id], h2[data-docmark-heading-id], h3[data-docmark-heading-id]"),
+    (heading) => ({
+      id: heading.getAttribute("data-docmark-heading-id") ?? "",
+      level: Number(heading.tagName.slice(1)),
+      label: visibleHeadingText(heading).replace(/\s+/g, " ").trim(),
+    }),
+  ).filter((heading) => heading.id && heading.label);
+}
+
+function renderToc(
+  markers: HTMLElement[],
+  headings: TocHeading[],
+  pages: TocPageMap,
+) {
+  markers.forEach((marker, markerIndex) => {
+    marker.classList.remove("docmark-toc");
+    marker.replaceChildren();
+    if (markerIndex !== 0) return;
+
+    marker.classList.add("docmark-toc");
+    const title = document.createElement("h2");
+    title.className = "docmark-toc-title";
+    title.textContent = "Table of Contents";
+
+    const list = document.createElement("ol");
+    list.className = "docmark-toc-list";
+    for (const heading of headings) {
+      const row = document.createElement("li");
+      row.className = "docmark-toc-entry";
+      row.dataset.docmarkTocEntry = heading.id;
+      row.style.setProperty("--toc-indent", `${(heading.level - 1) * 0.65}rem`);
+
+      const label = document.createElement("span");
+      label.className = "docmark-toc-label";
+      label.textContent = heading.label;
+
+      const leader = document.createElement("span");
+      leader.className = "docmark-toc-leader";
+      leader.setAttribute("aria-hidden", "true");
+
+      const page = document.createElement("span");
+      page.className = "docmark-toc-page";
+      page.textContent = String(pages[heading.id] ?? 1);
+
+      row.append(label, leader, page);
+      list.append(row);
+    }
+
+    marker.append(title, list);
+  });
+}
+
 export function DocumentPreview({
   markdown,
   settings,
@@ -32,8 +100,9 @@ export function DocumentPreview({
     key: string;
     status: "ready" | "fallback";
   } | null>(null);
+  const [tocPasses, setTocPasses] = useState(0);
   const [pages, setPages] = useState<PaginatedPage[]>([
-    { id: "page-1", html: "", isBlank: true, overflowPx: 0 },
+    { id: "page-1", html: "", isBlank: true, overflowPx: 0, headingIds: [] },
   ]);
   const [scale, setScale] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -73,6 +142,8 @@ export function DocumentPreview({
   useEffect(() => {
     let active = true;
 
+    onPaginationReady(false);
+
     renderMarkdown(markdown)
       .then((renderedHtml) => {
         if (active) {
@@ -87,7 +158,7 @@ export function DocumentPreview({
     return () => {
       active = false;
     };
-  }, [markdown]);
+  }, [markdown, onPaginationReady]);
 
   useEffect(() => {
     const content = measurementRef.current;
@@ -113,7 +184,35 @@ export function DocumentPreview({
       if (!active || generation !== paginationGeneration.current) return;
       onPaginationReady(false);
       try {
-        setPages(paginateDocument(renderedContent, content, contentHeightPx));
+        const tocMarkers = Array.from(
+          renderedContent.querySelectorAll<HTMLElement>("[data-docmark-toc]"),
+        );
+
+        if (tocMarkers.length === 0) {
+          setPages(paginateDocument(renderedContent, content, contentHeightPx));
+          setTocPasses(0);
+        } else {
+          const headings = readTocHeadings(renderedContent);
+          const initialPages = Object.fromEntries(headings.map(({ id }) => [id, 1]));
+          const result = stabilizeTocPagination((tocPages) => {
+            renderToc(tocMarkers, headings, tocPages);
+            const paginated = paginateDocument(
+              renderedContent,
+              content,
+              contentHeightPx,
+              true,
+            );
+            const actualHeadingPages = getPhysicalHeadingPages(paginated);
+            return {
+              result: paginated,
+              headingPages: Object.fromEntries(
+                headings.map(({ id }) => [id, actualHeadingPages[id] ?? 1]),
+              ),
+            };
+          }, initialPages);
+          setPages(result.result);
+          setTocPasses(result.passes);
+        }
         setPaginationError(false);
         onPaginationReady(true);
       } catch {
@@ -231,7 +330,10 @@ export function DocumentPreview({
       className="preview-canvas flex min-h-0 flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-7"
     >
       <style media="print">{printPageStyle}</style>
-      <div className="page-list flex w-full shrink-0 flex-col items-center gap-[18px]">
+      <div
+        className="page-list flex w-full shrink-0 flex-col items-center gap-[18px]"
+        data-toc-stabilization-passes={tocPasses}
+      >
         {pages.map((page, index) => (
           <div
             key={page.id}

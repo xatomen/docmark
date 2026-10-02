@@ -12,6 +12,64 @@
   display: flow-root;
 }
 
+.docmark-toc {
+  min-width: 0;
+  margin: 0 0 1rem;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.docmark-toc-title {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #dedfd9;
+  color: #20211e;
+  font-size: 1.466667em;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.docmark-toc-list {
+  display: grid;
+  min-width: 0;
+  gap: 0.35em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docmark-toc-entry {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, max-content) minmax(1rem, 1fr) minmax(4ch, max-content);
+  align-items: end;
+  column-gap: 0.45rem;
+  margin: 0;
+  margin-inline-start: var(--toc-indent, 0);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.docmark-toc-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.docmark-toc-leader {
+  min-width: 1rem;
+  align-self: end;
+  margin-bottom: 0.28em;
+  border-bottom: 1px dotted currentColor;
+}
+
+.docmark-toc-page {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .document-theme > :first-child {
   margin-top: 0;
 }

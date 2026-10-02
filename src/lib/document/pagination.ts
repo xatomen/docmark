@@ -3,6 +3,7 @@ export type PaginatedPage = {
   html: string;
   isBlank: boolean;
   overflowPx: number;
+  headingIds: string[];
 };
 
 type Measure = (nodes: HTMLElement[]) => number;
@@ -19,6 +20,10 @@ function isPageBreak(node: Node): boolean {
 
 function isHeading(node: HTMLElement): boolean {
   return /^H[1-6]$/.test(node.tagName);
+}
+
+function isToc(node: HTMLElement): boolean {
+  return node.hasAttribute("data-docmark-toc");
 }
 
 function cloneNodes(nodes: HTMLElement[]): HTMLElement[] {
@@ -262,7 +267,57 @@ function splitTable(table: HTMLElement, measure: Measure, maxHeight: number) {
   return result.length ? result : splitByText(table, measure, maxHeight);
 }
 
+function splitToc(toc: HTMLElement, measure: Measure, maxHeight: number): HTMLElement[] {
+  const title = toc.querySelector(":scope > .docmark-toc-title");
+  const list = toc.querySelector(":scope > .docmark-toc-list");
+  const rows = list ? Array.from(list.children) as HTMLElement[] : [];
+  if (!list || rows.length === 0) return [toc.cloneNode(true) as HTMLElement];
+
+  const makeFragment = (includeTitle: boolean) => {
+    const fragment = toc.cloneNode(false) as HTMLElement;
+    if (includeTitle && title) fragment.append(title.cloneNode(true));
+    const rowList = list.cloneNode(false) as HTMLElement;
+    fragment.append(rowList);
+    return { fragment, rowList };
+  };
+
+  const fragments: HTMLElement[] = [];
+  let current = makeFragment(Boolean(title));
+  let hasRows = false;
+
+  for (const row of rows) {
+    current.rowList.append(row.cloneNode(true));
+    if (measure([current.fragment]) <= maxHeight + 0.5) {
+      hasRows = true;
+      continue;
+    }
+
+    current.rowList.lastElementChild?.remove();
+    if (hasRows) {
+      fragments.push(current.fragment);
+      current = makeFragment(false);
+      current.rowList.append(row.cloneNode(true));
+      hasRows = true;
+      continue;
+    }
+
+    if (title && current.fragment.querySelector(".docmark-toc-title")) {
+      const titleOnly = makeFragment(true).fragment;
+      titleOnly.querySelector(".docmark-toc-list")?.remove();
+      if (measure([titleOnly]) <= maxHeight + 0.5) fragments.push(titleOnly);
+      current = makeFragment(false);
+    }
+    current.rowList.append(row.cloneNode(true));
+    hasRows = true;
+  }
+
+  if (hasRows || !fragments.length) fragments.push(current.fragment);
+  return fragments;
+}
+
 function splitOversized(node: HTMLElement, measure: Measure, maxHeight: number) {
+  if (isHeading(node)) return [node.cloneNode(true) as HTMLElement];
+  if (isToc(node)) return splitToc(node, measure, maxHeight);
   if (node.tagName === "UL" || node.tagName === "OL") {
     return splitList(node, measure, maxHeight);
   }
@@ -280,6 +335,7 @@ export function paginateDocument(
   renderedContent: HTMLElement,
   measurementContent: HTMLElement,
   contentHeightPx: number,
+  collectHeadingIds = false,
 ): PaginatedPage[] {
   const measure: Measure = (nodes) => {
     measurementContent.replaceChildren(...cloneNodes(nodes));
@@ -290,7 +346,23 @@ export function paginateDocument(
   });
   const blocks = sourceNodes.map((node) => node as HTMLElement);
   const pages: { html: string; overflowPx: number }[] = [];
+  const headingIdsByPage: string[][] = [];
   let current: HTMLElement[] = [];
+
+  const currentHeadingIds = () => {
+    if (!collectHeadingIds) return [];
+    const ids: string[] = [];
+    for (const node of current) {
+      if (node.hasAttribute("data-docmark-heading-id")) {
+        ids.push(node.getAttribute("data-docmark-heading-id")!);
+      }
+      ids.push(...Array.from(
+        node.querySelectorAll<HTMLElement>("[data-docmark-heading-id]"),
+        (heading) => heading.getAttribute("data-docmark-heading-id")!,
+      ));
+    }
+    return ids;
+  };
 
   const flush = () => {
     const height = current.length ? measure(current) : 0;
@@ -298,6 +370,7 @@ export function paginateDocument(
       html: current.length ? serializeNodes(current) : "",
       overflowPx: Math.max(0, height - contentHeightPx),
     });
+    headingIdsByPage.push(currentHeadingIds());
     current = [];
   };
   const addFragments = (fragments: HTMLElement[]) => {
@@ -361,6 +434,7 @@ export function paginateDocument(
       html: current.length ? serializeNodes(current) : "",
       overflowPx: Math.max(0, height - contentHeightPx),
     });
+    headingIdsByPage.push(currentHeadingIds());
   }
 
   return pages.map((page, index) => ({
@@ -368,5 +442,6 @@ export function paginateDocument(
     html: page.html,
     isBlank: page.html === "",
     overflowPx: page.overflowPx,
+    headingIds: headingIdsByPage[index] ?? [],
   }));
 }

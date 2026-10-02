@@ -84,6 +84,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
   :::pagebreak
   :::
   ```
+- Automatic Table of Contents at an explicit `:::toc` block. It indexes visible H1–H3 headings, uses measured physical page numbers even when page-number decorations are off or start at another number, and participates in normal pagination and browser print/PDF. Keep the directive in the Markdown source; the generated index is derived content. If a document contains multiple TOC directives, only the first one generates the index. Empty headings and H4–H6 headings are omitted.
 - Print-safe wrapping keeps long code lines, links, and technical identifiers within the page width. Tables stay inside the content area; wrapping increases document height and may increase the page count. Document pages intentionally avoid horizontal scrolling.
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
@@ -115,6 +116,34 @@ docmark:
 The **Include Docmark settings in Markdown** option is off for new and ordinary Markdown documents. It starts on when a file already has supported Docmark metadata. Docmark preserves unrelated Front Matter, while the editor shows and edits only the Markdown body. The complete workspace state remains in IndexedDB; the file carries only the optional external metadata and portable page settings. Malformed Front Matter or an unsupported Docmark version is preserved and shown with a non-blocking warning; Docmark does not rewrite that metadata.
 
 Page numbers are optional and default to off. They are physical page decorations, so enabling them does not add Markdown or change pagination. Supported positions are bottom-left (aligned with the content area's left edge), bottom-center (centered on the physical page), and bottom-right (aligned with the content area's right edge). Vertically, the number is centered within the bottom margin when space allows and remains safely inset from the physical page edge for very small margins. `startAt` is a positive integer. Numbers are shared by preview and browser print/PDF, scale with the preview, and are saved in IndexedDB. When portable settings are enabled, the same settings are stored under `docmark.pageNumbers`; otherwise they stay local to the browser document.
+
+### Automatic Table of Contents
+
+Insert a standalone `:::toc` block where the index should appear:
+
+```markdown
+# Architecture Report
+
+:::toc
+:::
+
+:::pagebreak
+:::
+
+# Executive Summary
+
+## Scope
+
+# Architecture
+
+## Infrastructure
+
+### AWS
+```
+
+Docmark creates one “Table of Contents” from source H1–H3 headings, including headings before the directive. Labels use their visible text; duplicate headings remain separate entries. Empty headings and H4–H6 are omitted. TOC rows use document typography (including bundled Montserrat), wrap long labels, and can continue across pages. Manual page breaks and blank physical pages affect the listed physical page numbers. These numbers stay independent from the optional Page Numbers decoration and its `startAt` value.
+
+The index uses the same measured pages in Preview and browser Print/PDF. Typography and pagination changes regenerate its page mapping after bundled fonts are ready. Saving, reopening, duplicating, and reloading a Markdown document preserve the `:::toc` source directive; generated rows and page values are derived and do not modify the source or its file dirty state. Only the first directive generates an index; later directives are no-ops. Custom titles, clickable links, and localization are not part of this version.
 
 Document typography is configurable with a font family, base size (9, 10, 11, 12, 14, or 16 pt), line height (1.2, 1.4, 1.5, 1.6, 1.75, 1.8, or 2), and paragraph alignment (left, center, right, or justify). System fonts (Arial, Helvetica, Georgia, Times New Roman, and Courier New) use local browser/system fallbacks. Montserrat is bundled with Docmark as local WOFF2 assets and is loaded from the same origin; runtime Google Fonts, CDN, and other external font requests are not used. Bundled fonts are verified with the browser Font Loading API before pagination is considered stable, keeping measurement, Preview, and Print/PDF on the same metrics. If Montserrat cannot load, all three use Arial and pagination/Export PDF remain available. Headings, lists, tables, and code retain their structural alignment; code stays monospace. Settings persist in IndexedDB and are written under `docmark.typography` only while portable metadata is enabled.
 
@@ -157,4 +186,4 @@ docmark:
 
 1. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include Mermaid, KaTeX, table of contents, and PWA/offline support. They are not implemented yet.
+Planned capabilities include Mermaid, KaTeX, and PWA/offline support.

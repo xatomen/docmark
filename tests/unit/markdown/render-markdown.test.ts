@@ -66,4 +66,56 @@ describe("sanitized Markdown pipeline", () => {
     const html = await renderMarkdown(markdown);
     expect(html).not.toContain("data-docmark-page-break");
   });
+
+  it("recognizes standalone TOC directives and assigns stable IDs only to source H1-H3", async () => {
+    const html = await renderMarkdown([
+      "# **Architecture** `Report` [Overview](https://example.invalid)",
+      "",
+      ":::toc", ":::",
+      "",
+      "## Duplicate", "", "## Duplicate", "",
+      "### Nested", "", "#### Not indexed",
+      "##### Also not indexed", "", "###### Still not indexed", "",
+      "### ![](https://example.invalid/empty.png)",
+      "",
+      "```md", "# Fake heading", ":::", "toc", "```",
+    ].join("\n"));
+
+    expect(html).toContain('data-docmark-toc=""');
+    expect(html).toContain('data-docmark-heading-id="docmark-heading-0"');
+    expect(html).toContain('data-docmark-heading-id="docmark-heading-1"');
+    expect(html).toContain('data-docmark-heading-id="docmark-heading-2"');
+    expect(html).toContain('data-docmark-heading-id="docmark-heading-3"');
+    expect(html).toContain("<h4>Not indexed</h4>");
+    expect(html).not.toContain('<h4 data-docmark-heading-id=');
+    expect(html).not.toMatch(/<h[456] data-docmark-heading-id=/);
+    expect((html.match(/data-docmark-heading-id="docmark-heading-/g) ?? [])).toHaveLength(4);
+    expect(html).toContain("<strong>Architecture</strong>");
+    expect(html).toContain("<code>Report</code>");
+    expect(html).toContain('href="https://example.invalid"');
+    expect(html).toContain("# Fake heading");
+    expect(html).not.toContain('data-docmark-heading-id="docmark-heading-4"');
+  });
+
+  it.each([
+    ["inline text", "Before :::toc ::: after"],
+    ["inline code", "`:::toc\n:::`"],
+    ["a code fence", "```md\n:::toc\n:::\n```"],
+    ["normal prose", "Use :::toc to insert a table of contents."],
+  ])("does not interpret TOC directives inside %s", async (_description, markdown) => {
+    const html = await renderMarkdown(markdown);
+    expect(html).not.toContain("data-docmark-toc");
+    expect(html).not.toContain("data-docmark-heading-id");
+  });
+
+  it("allows multiple TOC markers but leaves their single-effective policy to rendering", async () => {
+    const html = await renderMarkdown(":::toc\n:::\n\n# One\n\n:::toc\n:::");
+    expect(html.match(/data-docmark-toc=/g)).toHaveLength(2);
+    expect(html).toContain('data-docmark-heading-id="docmark-heading-0"');
+  });
+
+  it("does not let raw HTML forge internal heading identities", async () => {
+    const html = await renderMarkdown(':::toc\n:::\n\n<h1 data-docmark-heading-id="attacker">Forged</h1>');
+    expect(html).not.toContain('data-docmark-heading-id="attacker"');
+  });
 });
