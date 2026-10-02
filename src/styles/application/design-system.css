@@ -1,0 +1,118 @@
+/*
+ * Docmark application UI tokens.
+ * The physical page, rendered Markdown, document themes, and print rules use
+ * their own --doc-* tokens in styles/document and are intentionally separate.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Brand and readable text */
+  --background: #f8f8f6;
+  --foreground: #20211e;
+  --muted: #66685f;
+  --accent: #536e55;
+  --accent-foreground: #ffffff;
+  --focus: var(--accent);
+  --link: var(--accent);
+
+  /* Application surfaces */
+  --surface: #ffffff;
+  --surface-foreground: var(--foreground);
+  --surface-secondary: #f0f0ed;
+  --surface-secondary-foreground: var(--foreground);
+  --surface-tertiary: #e9eae6;
+  --surface-tertiary-foreground: var(--foreground);
+  --overlay: #ffffff;
+  --overlay-foreground: var(--foreground);
+  --subtle: var(--surface-secondary);
+  --default: var(--surface-secondary);
+  --default-foreground: var(--foreground);
+
+  /* Borders and fields */
+  --border: #dedfd9;
+  --border-secondary: #e7e8e2;
+  --separator: #e9e9e5;
+  --interactive-border: #a9aba3;
+  --field-background: var(--surface);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --field-border: var(--border);
+  --field-border-hover: var(--interactive-border);
+  --field-border-focus: var(--focus);
+  --field-border-width: 1px;
+
+  /* Simple application radius scale; document dimensions stay in mm. */
+  --docmark-radius-control: 0.625rem;
+  --docmark-radius-surface: 0.875rem;
+  --docmark-radius-overlay: 0.75rem;
+  --radius: var(--docmark-radius-control);
+  --field-radius: var(--docmark-radius-control);
+
+  /* Quiet depth for future app surfaces and overlays. */
+  --surface-shadow: 0 1px 2px rgb(32 33 30 / 4%), 0 4px 12px rgb(32 33 30 / 4%);
+  --overlay-shadow: 0 2px 5px rgb(32 33 30 / 6%), 0 8px 20px rgb(32 33 30 / 8%);
+  --field-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --background: #171815;
+    --foreground: #efefe9;
+    --muted: #a2a49a;
+    --accent: #91b993;
+    --accent-foreground: #141714;
+    --focus: var(--accent);
+    --link: var(--accent);
+
+    --surface: #1e201c;
+    --surface-foreground: var(--foreground);
+    --surface-secondary: #252721;
+    --surface-secondary-foreground: var(--foreground);
+    --surface-tertiary: #2c2f28;
+    --surface-tertiary-foreground: var(--foreground);
+    --overlay: #20221e;
+    --overlay-foreground: var(--foreground);
+    --backdrop: rgb(0 0 0 / 65%);
+    --subtle: var(--surface);
+    --default: #292b25;
+    --default-foreground: var(--foreground);
+
+    --border: #363832;
+    --border-secondary: #44473f;
+    --separator: #2b2d27;
+    --interactive-border: #5a5e54;
+    --field-background: var(--surface);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted);
+    --field-border: #41443d;
+    --field-border-hover: var(--interactive-border);
+    --field-border-focus: var(--focus);
+
+    --surface-shadow: none;
+    --overlay-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 8px 24px rgb(0 0 0 / 32%);
+    --field-shadow: none;
+  }
+}
+
+@theme inline {
+  /* Keep existing application utility names backed by Docmark tokens. */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-interactive-border: var(--interactive-border);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, monospace;
+}
+
+@layer components {
+  /* Keep this application chrome override away from user-authored document HTML. */
+  .docmark-app .app-header .button {
+    border-radius: var(--docmark-radius-control);
+  }
+}

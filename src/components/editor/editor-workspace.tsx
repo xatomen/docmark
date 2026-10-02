@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button, Tooltip } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
 import { DocumentSwitcher } from "@/components/editor/document-switcher";
@@ -857,13 +858,14 @@ export function EditorWorkspace() {
             {documentError ? "Document operation failed" : statusText[persistenceStatus]}
           </span>
           {printError && <span role="status" className="text-xs text-red-700 dark:text-red-300">Printing is unavailable in this browser.</span>}
-          <button
-            type="button"
-            onClick={printDocument}
-            disabled={!documentRecord || !paginationReady}
-            className="rounded-md border border-border px-4 py-2 text-sm text-foreground enabled:hover:bg-subtle disabled:cursor-not-allowed disabled:text-muted disabled:opacity-60"
-            title={paginationReady ? "Open the browser print dialog" : "Preparing document pages"}
-          >Export PDF</button>
+          <Tooltip delay={500}>
+            <Button
+              onPress={printDocument}
+              isDisabled={!documentRecord || !paginationReady}
+              variant="primary"
+            >Export PDF</Button>
+            <Tooltip.Content>Opens the browser print dialog; choose Save as PDF.</Tooltip.Content>
+          </Tooltip>
         </div>
       </header>
 
