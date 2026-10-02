@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { PageKind } from "@/lib/document/physical-pages";
 import { getPageNumber, type HeaderFooterSettings, type PageNumberSettings } from "@/lib/document/settings";
 
 type PageDecorationsProps = {
@@ -10,6 +11,7 @@ type PageDecorationsProps = {
   rightMarginMm: number;
   topMarginMm: number;
   bottomMarginMm: number;
+  pageKind?: PageKind;
 };
 
 function DecorationText({
@@ -37,7 +39,9 @@ export function PageDecorations({
   rightMarginMm,
   topMarginMm,
   bottomMarginMm,
+  pageKind = "content",
 }: PageDecorationsProps) {
+  if (pageKind === "cover") return null;
   if (!settings.enabled && !header.enabled && !footer.enabled) return null;
 
   const style = {

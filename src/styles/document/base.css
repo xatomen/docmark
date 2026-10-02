@@ -1,4 +1,7 @@
 .document-theme {
+  --cover-title-color: var(--doc-heading-color);
+  --cover-subtitle-color: var(--doc-text-color);
+  --cover-metadata-color: var(--doc-text-color);
   --doc-text-color: #282a27;
   --doc-heading-color: #20211e;
   --doc-heading-spacing-before: 2rem;
@@ -36,6 +39,9 @@
 }
 
 .document-theme.docmark-theme-technical {
+  --cover-title-color: #243747;
+  --cover-subtitle-color: #405768;
+  --cover-metadata-color: #536a7a;
   --doc-heading-color: #243747;
   --doc-heading-spacing-before: 2.1rem;
   --doc-heading-spacing-after: 0.65rem;
@@ -64,6 +70,9 @@
 }
 
 .document-theme.docmark-theme-academic {
+  --cover-title-color: #302d29;
+  --cover-subtitle-color: #514c45;
+  --cover-metadata-color: #5b5954;
   --doc-heading-color: #302d29;
   --doc-heading-spacing-before: 2rem;
   --doc-heading-spacing-after: 0.8rem;
@@ -92,6 +101,9 @@
 }
 
 .document-theme.docmark-theme-minimal {
+  --cover-title-color: #292c29;
+  --cover-subtitle-color: #465e50;
+  --cover-metadata-color: #676c66;
   --doc-heading-color: #292c29;
   --doc-heading-spacing-before: 2.2rem;
   --doc-heading-spacing-after: 0.9rem;

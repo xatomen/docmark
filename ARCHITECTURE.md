@@ -69,7 +69,7 @@ DocumentSettings ─────────────────────
                                                                                  └→ Print Layout → Browser Print Engine → Save as PDF
 ```
 
-`DocumentSettings` includes the stable document theme ID (`default`, `technical`, `academic`, or `minimal`), physical page settings, optional page numbers, Header/Footer text and alignment, and document typography (`fontFamily`, `fontSize`, `lineHeight`, `alignment`). They follow the same React and IndexedDB path. Legacy records without `theme` normalize to `default`; the existing database version and object stores remain unchanged. Theme, page decorations, and typography are serialized into Front Matter v1 only while portable metadata is enabled.
+`DocumentSettings` includes the stable document theme ID (`default`, `technical`, `academic`, or `minimal`), physical page settings, optional page numbers, Header/Footer text and alignment, document typography (`fontFamily`, `fontSize`, `lineHeight`, `alignment`), and optional cover fields. They follow the same React and IndexedDB path. Legacy records without `theme` normalize to `default`, and records without cover settings normalize to a disabled cover; the existing database version and object stores remain unchanged. Theme, page decorations, typography, and cover fields are serialized into Front Matter v1 only while portable metadata is enabled.
 
 ## Markdown data flow
 
@@ -185,7 +185,7 @@ Front Matter is an optional file representation. `DocmarkDocument.markdown` rema
                   .md file
 ```
 
-The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.theme` (a registry ID), `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), four `margins` values in millimeters, and optional `pageNumbers` settings to `DocumentSettings`. Page-number fields are validated independently; missing or invalid fields use defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
+The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.theme` (a registry ID), `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), four `margins` values in millimeters, optional `pageNumbers` settings, and optional `cover` settings to `DocumentSettings`. Page-number and cover fields are validated independently; missing or invalid fields use defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
 
 The **Include Docmark settings in Markdown** preference defaults off for new and ordinary Markdown files, and on for files with supported v1 metadata. With it off, ordinary Markdown remains a body-only file; external Front Matter is retained, and turning it off on a portable document removes only the root `docmark` key. With it on, the serializer writes version 1 and the current theme and document settings. The same serializer drives Save, Save As, fallback downloads, and file dirty-state comparison.
 
@@ -318,6 +318,8 @@ Pagination Engine
 This composition boundary is intended to support future headers and footers without changing the Pagination Engine.
 
 The pagination pass is synchronous after browser font readiness. It uses no polling and does not observe its own output. A generation counter and effect cleanup discard stale work after content or layout typography changes. Markdown rendering depends only on Markdown; page size, orientation, margins, and typography trigger pagination without recreating CodeMirror or rerunning the Markdown pipeline. Page number and Header/Footer changes do not invalidate pagination. Viewport width is a separate `ResizeObserver` path that changes only the shared visual scale and cannot change page count.
+
+An enabled cover is composed as a typed physical page (`kind: "cover"`) around the content pages returned by the Pagination Engine (`kind: "content"`). It is not Markdown, a synthetic page break, or part of measurement. The shared page list drives preview and print; page indexes therefore include the cover for TOC mapping and existing physical page numbers. `PageDecorations` hides all decorations for a cover by page kind, while content pages keep global settings. An enabled cover with empty Markdown suppresses the paginator's otherwise blank content page; intentional Markdown page-break pages remain intact. Cover fields render as React text nodes and use an inset based on the configured margins with a 12 mm minimum.
 
 `lib/document/pagination` returns stable page IDs and rendered fragments. Blocks that fit stay together; lists are grouped at list-item boundaries, tables are grouped at row boundaries, and long text-bearing blocks are split with DOM Range fragments that preserve valid nested HTML. Table continuations repeat `<thead>` when present. A heading that would be left at the bottom of a page moves with following content when that content fits. Manual page-break markers always end the current page and can intentionally produce blank pages at the start, between consecutive markers, or at the end. An empty document produces one blank page.
 

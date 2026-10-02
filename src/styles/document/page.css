@@ -31,6 +31,64 @@
   overflow: visible;
 }
 
+.document-cover-theme {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.document-cover {
+  position: absolute;
+  inset: var(--cover-inset-top) var(--cover-inset-right) var(--cover-inset-bottom) var(--cover-inset-left);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.document-cover-main {
+  margin-block: auto;
+  padding-block: 8%;
+}
+
+.document-cover-theme.document-theme .document-cover-title {
+  margin: 0;
+  color: var(--cover-title-color, var(--doc-heading-color));
+  font-size: 3.8em;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.document-cover-theme.document-theme .document-cover-subtitle {
+  margin: 1.2em 0 0;
+  color: var(--cover-subtitle-color, var(--doc-text-color));
+  font-size: 1.35em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.document-cover-metadata {
+  margin-top: auto;
+  padding-bottom: 2%;
+  color: var(--cover-metadata-color, var(--doc-text-color));
+  font-size: 1.05em;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.document-cover-theme.document-theme .document-cover-metadata p {
+  margin: 0;
+  text-align: center;
+}
+
 .page-decorations {
   position: absolute;
   z-index: 1;

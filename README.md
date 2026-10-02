@@ -111,6 +111,13 @@ Traditional Markdown without Front Matter remains fully supported. Portable page
 ---
 docmark:
   version: 1
+  cover:
+    enabled: true
+    title: Architecture Report
+    subtitle: AWS Platform
+    author: Jorge Gallardo
+    organization: Example Company
+    date: '2026-10-02'
   page:
     size: A4
     orientation: portrait
@@ -180,6 +187,8 @@ docmark:
 Montserrat's WOFF2 assets are sourced from the [official Montserrat project repository](https://github.com/JulietaUla/Montserrat), under the [SIL Open Font License 1.1](https://openfontlicense.org/). The upstream `OFL.txt` is included unchanged at `public/fonts/montserrat/OFL.txt`. Docmark bundles only the static 400, 600, and 700 weights used by document text (headings use CSS weight 650 and resolve to the available 700 face); this avoids shipping unused weights while keeping actual bold faces available.
 
 Optional Headers and Footers are plain text physical page decorations, disabled by default. Each can be aligned left, center, or right independently. Text is displayed literally (including characters such as `<script>` and `{page}`), supports line breaks, and wraps inside the page. They appear in Preview and the same browser Print/PDF page DOM, persist in IndexedDB, and do not add Markdown or affect pagination. Footer and page numbers use left/center/right slots; when both request the same slot they stack vertically. Portable settings store them under `docmark.header` and `docmark.footer` when **Include Docmark settings in Markdown** is on.
+
+Cover pages are optional and disabled by default. Their title, subtitle, author, organization, and date are plain text; an enabled cover becomes physical page 1 and shares the same Preview and Print/PDF page sequence as Markdown. The cover uses the selected theme and typography, has a safe inset even with zero margins, and hides page decorations while content pages retain existing physical page numbering. Cover fields persist in IndexedDB and are stored under `docmark.cover` only when portable settings are enabled.
 
 ```yaml
 ---

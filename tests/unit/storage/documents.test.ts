@@ -75,6 +75,7 @@ describe("IndexedDB document persistence", () => {
         header: { enabled: true, text: "Header", alignment: "center" },
         footer: { enabled: true, text: "Footer", alignment: "right" },
         typography: { fontFamily: "Georgia", fontSize: 14, lineHeight: 1.6, alignment: "justify" },
+        cover: { enabled: true, title: "Report", subtitle: "Quarterly", author: "Jorge", organization: "Example", date: "2026" },
       },
     );
 

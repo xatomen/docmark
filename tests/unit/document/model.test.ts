@@ -30,6 +30,7 @@ describe("DocmarkDocument model", () => {
       header: { enabled: true, text: "Header", alignment: "center" },
       footer: { enabled: true, text: "Footer", alignment: "right" },
       typography: { fontFamily: "Georgia", fontSize: 14, lineHeight: 1.6, alignment: "justify" },
+      cover: { enabled: true, title: "Report", subtitle: "Quarterly", author: "Jorge", organization: "Example", date: "2026" },
     }, "Quarterly report");
     source.createdAt = "2000-01-01T00:00:00.000Z";
     source.updatedAt = "2000-01-02T00:00:00.000Z";
@@ -138,5 +139,16 @@ describe("DocmarkDocument model", () => {
       settings: { typography: { fontFamily: "Comic Sans Banana", fontSize: 12.5, lineHeight: -100, alignment: "diagonal" } },
     });
     expect(malformed?.settings.typography).toEqual(DEFAULT_DOCUMENT_SETTINGS.typography);
+  });
+
+  it("defaults legacy cover settings off and normalizes each field independently", () => {
+    const now = "2024-01-02T00:00:00.000Z";
+    const legacy = normalizeStoredDocument({ id: "pre-cover", title: "Old", markdown: "", createdAt: now });
+    expect(legacy?.settings.cover).toEqual(DEFAULT_DOCUMENT_SETTINGS.cover);
+    const normalized = normalizeStoredDocument({
+      id: "cover", title: "Cover", markdown: "", createdAt: now,
+      settings: { cover: { enabled: true, title: "A\nReport", subtitle: 42, author: "Jorge", organization: null, date: "2026" } },
+    });
+    expect(normalized?.settings.cover).toEqual({ enabled: true, title: "A Report", subtitle: "", author: "Jorge", organization: "", date: "2026" });
   });
 });

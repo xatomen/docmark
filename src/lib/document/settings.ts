@@ -50,6 +50,15 @@ export type HeaderFooterSettings = {
   alignment: DecorationAlignment;
 };
 
+export type CoverPageSettings = {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  author: string;
+  organization: string;
+  date: string;
+};
+
 export type DocumentSettings = {
   theme: DocumentThemeId;
   pageSize: PageSize;
@@ -59,6 +68,7 @@ export type DocumentSettings = {
   header: HeaderFooterSettings;
   footer: HeaderFooterSettings;
   typography: TypographySettings;
+  cover: CoverPageSettings;
 };
 
 export type PageDimensions = {
@@ -75,6 +85,7 @@ export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
   header: { enabled: false, text: "", alignment: "left" },
   footer: { enabled: false, text: "", alignment: "left" },
   typography: { fontFamily: "Arial", fontSize: 11, lineHeight: 1.75, alignment: "left" },
+  cover: { enabled: false, title: "", subtitle: "", author: "", organization: "", date: "" },
 };
 
 export function isDocumentFontFamily(value: unknown): value is DocumentFontFamily {

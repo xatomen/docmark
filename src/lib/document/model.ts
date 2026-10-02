@@ -91,6 +91,7 @@ function copySettings(settings: DocumentSettings): DocumentSettings {
     header: { ...settings.header },
     footer: { ...settings.footer },
     typography: { ...settings.typography },
+    cover: { ...settings.cover },
   };
 }
 
@@ -192,6 +193,15 @@ function normalizeSettings(value: unknown): DocumentSettings {
       ? rawTypography.alignment
       : defaults.typography.alignment,
   };
+  const rawCover = isRecord(source.cover) ? source.cover : {};
+  const cover = {
+    enabled: typeof rawCover.enabled === "boolean" ? rawCover.enabled : defaults.cover.enabled,
+    title: normalizeCoverField(rawCover.title),
+    subtitle: normalizeCoverField(rawCover.subtitle),
+    author: normalizeCoverField(rawCover.author),
+    organization: normalizeCoverField(rawCover.organization),
+    date: normalizeCoverField(rawCover.date),
+  };
 
   return {
     theme: isDocumentThemeId(source.theme) ? source.theme : defaults.theme,
@@ -202,7 +212,12 @@ function normalizeSettings(value: unknown): DocumentSettings {
     header: normalizeDecoration("header"),
     footer: normalizeDecoration("footer"),
     typography,
+    cover,
   };
+}
+
+function normalizeCoverField(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\r?\n/g, " ").trim() : "";
 }
 
 /** Build a document on the client; call only after browser initialization. */

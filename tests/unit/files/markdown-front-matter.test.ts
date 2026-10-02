@@ -106,6 +106,7 @@ describe("portable Markdown front matter", () => {
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
       typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },
+      cover: { ...DEFAULT_DOCUMENT_SETTINGS.cover },
     });
     expect(parsed.markdown).toBe("# Report");
     expect(parsed.portableMarkdown.includeDocmarkSettings).toBe(true);
@@ -348,6 +349,7 @@ describe("portable Markdown front matter", () => {
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
       typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },
+      cover: { ...DEFAULT_DOCUMENT_SETTINGS.cover },
     };
     const portable = serializeMarkdownFile(document);
 
@@ -389,5 +391,32 @@ describe("portable Markdown front matter", () => {
     expect(reopened.markdown).toBe(document.markdown);
     expect(reopened.markdown).toContain(":::pagebreak\n:::");
     expect(reopened.portableMarkdown.includeDocmarkSettings).toBe(true);
+  });
+
+  it("validates cover fields independently and round-trips portable cover settings", () => {
+    const source = [
+      "---", "custom: retained", "docmark:", "  version: 1", "  cover:",
+      "    enabled: true", "    title: 'Architecture Report'", "    subtitle: 4",
+      "    author: Jorge", "    organization: Example", "    date: '2026-10-02'",
+      "    futureField: kept", "---", "# Body",
+    ].join("\n");
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.cover).toEqual({
+      enabled: true, title: "Architecture Report", subtitle: "", author: "Jorge",
+      organization: "Example", date: "2026-10-02",
+    });
+    expect(parsed.portableMarkdown.status).toBe("invalid-settings");
+    parsed.settings.cover.subtitle = "Cloud platform";
+    const saved = serializeMarkdownFile(parsed);
+    expect(saved).toContain("futureField: kept");
+    expect(saved).toContain("subtitle: Cloud platform");
+    expect(saved).toContain("custom: retained");
+    expect(parseMarkdownFile(saved).settings.cover.subtitle).toBe("Cloud platform");
+  });
+
+  it("keeps cover settings local when portable metadata is off", () => {
+    const document = asDocument("# Local cover");
+    document.settings.cover = { enabled: true, title: "Local", subtitle: "", author: "", organization: "", date: "" };
+    expect(serializeMarkdownFile(document)).toBe("# Local cover");
   });
 });

@@ -171,7 +171,23 @@ function readSettings(docmark: Record<string, unknown>): {
   if (Object.hasOwn(rawTypography, "fontSize") && !isDocumentFontSize(rawTypography.fontSize)) invalid = true;
   if (Object.hasOwn(rawTypography, "lineHeight") && !isDocumentLineHeight(rawTypography.lineHeight)) invalid = true;
   if (Object.hasOwn(rawTypography, "alignment") && !isDocumentTextAlignment(rawTypography.alignment)) invalid = true;
-  return { settings: { theme, pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer"), typography }, invalid };
+  if (Object.hasOwn(docmark, "cover") && !isRecord(docmark.cover)) invalid = true;
+  const rawCover = isRecord(docmark.cover) ? docmark.cover : {};
+  const coverField = (key: "title" | "subtitle" | "author" | "organization" | "date") => {
+    const value = rawCover[key];
+    if (Object.hasOwn(rawCover, key) && typeof value !== "string") invalid = true;
+    return typeof value === "string" ? value.replace(/\r?\n/g, " ").trim() : defaults.cover[key];
+  };
+  const cover = {
+    enabled: typeof rawCover.enabled === "boolean" ? rawCover.enabled : defaults.cover.enabled,
+    title: coverField("title"),
+    subtitle: coverField("subtitle"),
+    author: coverField("author"),
+    organization: coverField("organization"),
+    date: coverField("date"),
+  };
+  if (Object.hasOwn(rawCover, "enabled") && typeof rawCover.enabled !== "boolean") invalid = true;
+  return { settings: { theme, pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer"), typography, cover }, invalid };
 }
 
 export function getPortableMarkdownWarning(metadata: PortableMarkdownMetadata): string | null {
@@ -305,6 +321,7 @@ function getDocumentSnapshot(document: Pick<DocmarkDocument, "settings">) {
     header: { ...document.settings.header },
     footer: { ...document.settings.footer },
     typography: { ...document.settings.typography },
+    cover: { ...document.settings.cover },
   };
 }
 
@@ -328,7 +345,13 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.typography.fontFamily === right.typography.fontFamily &&
     left.typography.fontSize === right.typography.fontSize &&
     left.typography.lineHeight === right.typography.lineHeight &&
-    left.typography.alignment === right.typography.alignment;
+    left.typography.alignment === right.typography.alignment &&
+    left.cover.enabled === right.cover.enabled &&
+    left.cover.title === right.cover.title &&
+    left.cover.subtitle === right.cover.subtitle &&
+    left.cover.author === right.cover.author &&
+    left.cover.organization === right.cover.organization &&
+    left.cover.date === right.cover.date;
 }
 
 function getYamlMap(document: ReturnType<typeof parseDocument>, key: string): YAMLMap {
@@ -371,6 +394,13 @@ function updateDocmarkNamespace(
   typography.set("fontSize", settings.typography.fontSize);
   typography.set("lineHeight", settings.typography.lineHeight);
   typography.set("alignment", settings.typography.alignment);
+  const cover = getYamlMapFromMap(yamlDocument, docmark, "cover");
+  cover.set("enabled", settings.cover.enabled);
+  cover.set("title", settings.cover.title);
+  cover.set("subtitle", settings.cover.subtitle);
+  cover.set("author", settings.cover.author);
+  cover.set("organization", settings.cover.organization);
+  cover.set("date", settings.cover.date);
 }
 
 function getYamlMapFromMap(

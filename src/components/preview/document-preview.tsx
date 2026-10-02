@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { renderMarkdownDocument } from "@/lib/markdown/render-markdown";
 import { fitMermaidBlocks } from "@/lib/document/mermaid-geometry";
-import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
+import { paginateDocument } from "@/lib/document/pagination";
 import { PageDecorations } from "@/components/document/page-decorations";
+import { DocumentCover, getDocumentCoverStyle } from "@/components/document/document-cover";
+import { composePhysicalPages, type PhysicalPage } from "@/lib/document/physical-pages";
 import { ensureDocumentFontReady } from "@/lib/document/font-loading";
 import { getDocumentFontDefinition } from "@/lib/document/font-registry";
 import {
@@ -116,8 +118,8 @@ export function DocumentPreview({
     status: "ready" | "fallback";
   } | null>(null);
   const [tocPasses, setTocPasses] = useState(0);
-  const [pages, setPages] = useState<PaginatedPage[]>([
-    { id: "page-1", html: "", isBlank: true, overflowPx: 0, headingIds: [] },
+  const [pages, setPages] = useState<PhysicalPage[]>([
+    { id: "page-1", kind: "content", html: "", isBlank: true, overflowPx: 0, headingIds: [] },
   ]);
   const [scale, setScale] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -217,7 +219,11 @@ export function DocumentPreview({
         );
 
         if (tocMarkers.length === 0) {
-          setPages(paginateDocument(renderedContent, content, contentHeightPx));
+          setPages(composePhysicalPages(
+            paginateDocument(renderedContent, content, contentHeightPx),
+            settings.cover.enabled,
+            renderedContent.childNodes.length > 0,
+          ));
           setTocPasses(0);
         } else {
           const headings = readTocHeadings(renderedContent);
@@ -230,9 +236,14 @@ export function DocumentPreview({
               contentHeightPx,
               true,
             );
-            const actualHeadingPages = getPhysicalHeadingPages(paginated);
+            const physicalPages = composePhysicalPages(
+              paginated,
+              settings.cover.enabled,
+              renderedContent.childNodes.length > 0,
+            );
+            const actualHeadingPages = getPhysicalHeadingPages(physicalPages);
             return {
-              result: paginated,
+              result: physicalPages,
               headingPages: Object.fromEntries(
                 headings.map(({ id }) => [id, actualHeadingPages[id] ?? 1]),
               ),
@@ -299,6 +310,7 @@ export function DocumentPreview({
     currentFontReadiness,
     settings.typography.lineHeight,
     settings.typography.alignment,
+    settings.cover.enabled,
     onPaginationReady,
     renderError,
   ]);
@@ -381,13 +393,22 @@ export function DocumentPreview({
               className={`physical-page${page.overflowPx > 0.5 ? " physical-page-overflow" : ""}`}
               style={pageStyle}
               aria-label={`Page ${index + 1}${page.isBlank ? ", blank" : ""}`}
+              data-page-kind={page.kind ?? "content"}
             >
-              <div
+              {page.kind === "cover" ? (
+                <div
+                  className={`${documentThemeClass} document-cover-theme`}
+                  data-docmark-theme={theme.id}
+                  style={{ ...contentStyle, ...getDocumentCoverStyle(settings.margins) }}
+                >
+                  <DocumentCover settings={settings.cover} />
+                </div>
+              ) : <div
                 className={`${documentThemeClass} document-content`}
                 data-docmark-theme={theme.id}
                 style={contentStyle}
                 dangerouslySetInnerHTML={{ __html: page.html }}
-              />
+              />}
               <PageDecorations
                 pageIndex={index}
                 settings={settings.pageNumbers}
@@ -397,6 +418,7 @@ export function DocumentPreview({
                 rightMarginMm={settings.margins.right}
                 topMarginMm={settings.margins.top}
                 bottomMarginMm={settings.margins.bottom}
+                pageKind={page.kind ?? "content"}
               />
             </article>
           </div>

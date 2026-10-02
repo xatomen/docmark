@@ -167,6 +167,44 @@ export function DocumentSettingsControls({
       </label>
 
       <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
+        <legend className="px-1">Cover Page</legend>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label="Enable cover page"
+            checked={settings.cover.enabled}
+            onChange={(event) => onChange({
+              ...settings,
+              cover: { ...settings.cover, enabled: event.target.checked },
+            })}
+            className="accent-accent"
+          />
+          Enable cover page
+        </label>
+        {settings.cover.enabled && ([
+          ["title", "Title"],
+          ["subtitle", "Subtitle"],
+          ["author", "Author"],
+          ["organization", "Organization"],
+          ["date", "Date"],
+        ] as const).map(([key, label]) => (
+          <label className="flex items-center gap-2" key={key}>
+            {label}
+            <input
+              type="text"
+              aria-label={`Cover ${label.toLowerCase()}`}
+              value={settings.cover[key]}
+              onChange={(event) => onChange({
+                ...settings,
+                cover: { ...settings.cover, [key]: event.target.value.replace(/\r?\n/g, " ") },
+              })}
+              className="w-44 rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          </label>
+        ))}
+      </fieldset>
+
+      <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
         <legend className="px-1">Typography</legend>
         <label className="flex items-center gap-2">
           Font family

@@ -102,6 +102,7 @@ function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSna
       header: { ...document.settings.header },
       footer: { ...document.settings.footer },
       typography: { ...document.settings.typography },
+      cover: { ...document.settings.cover },
     },
     portableMarkdown: { ...document.portableMarkdown },
   };
@@ -128,13 +129,20 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.typography.fontFamily === right.typography.fontFamily &&
     left.typography.fontSize === right.typography.fontSize &&
     left.typography.lineHeight === right.typography.lineHeight &&
-    left.typography.alignment === right.typography.alignment
+    left.typography.alignment === right.typography.alignment &&
+    left.cover.enabled === right.cover.enabled &&
+    left.cover.title === right.cover.title &&
+    left.cover.subtitle === right.cover.subtitle &&
+    left.cover.author === right.cover.author &&
+    left.cover.organization === right.cover.organization &&
+    left.cover.date === right.cover.date
   );
 }
 
 function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolean {
   return left.pageSize === right.pageSize &&
     left.theme === right.theme &&
+    left.cover.enabled === right.cover.enabled &&
     left.orientation === right.orientation &&
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&
