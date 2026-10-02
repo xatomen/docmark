@@ -102,7 +102,7 @@ describe("portable Markdown front matter", () => {
       pageSize: "letter",
       orientation: "portrait",
       margins: { top: 15, right: 20, bottom: 20, left: 20 },
-      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1, excludeCover: false },
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
       typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },
@@ -145,6 +145,7 @@ describe("portable Markdown front matter", () => {
 
     expect(parsed.settings).toEqual({
       ...DEFAULT_DOCUMENT_SETTINGS,
+      pageNumbers: { ...DEFAULT_DOCUMENT_SETTINGS.pageNumbers, excludeCover: false },
       pageSize: "letter",
       margins: { ...DEFAULT_DOCUMENT_SETTINGS.margins },
     });
@@ -166,6 +167,7 @@ describe("portable Markdown front matter", () => {
       enabled: true,
       position: "bottom-right",
       startAt: 5,
+      excludeCover: false,
     });
 
     const partial = parseMarkdownFile("---\ndocmark:\n  version: 1\n  pageNumbers:\n    enabled: true\n---\n# Partial");
@@ -173,7 +175,22 @@ describe("portable Markdown front matter", () => {
       enabled: true,
       position: "bottom-center",
       startAt: 1,
+      excludeCover: false,
     });
+  });
+
+  it("round-trips startAt zero and cover exclusion without changing v1", () => {
+    const source = "---\ndocmark:\n  version: 1\n  pageNumbers:\n    enabled: true\n    startAt: 0\n    excludeCover: true\n---\n# Body";
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.pageNumbers).toMatchObject({ startAt: 0, excludeCover: true });
+    const document = asDocument(source);
+    document.settings.pageNumbers = parsed.settings.pageNumbers;
+    document.portableMarkdown = parsed.portableMarkdown;
+    const saved = serializeMarkdownFile(document);
+    expect(saved).toContain("version: 1");
+    expect(saved).toContain("startAt: 0");
+    expect(saved).toContain("excludeCover: true");
+    expect(parseMarkdownFile(saved).settings.pageNumbers).toMatchObject({ startAt: 0, excludeCover: true });
   });
 
   it("falls back per invalid page number field and preserves unknown fields", () => {
@@ -185,6 +202,7 @@ describe("portable Markdown front matter", () => {
       "    enabled: true",
       "    position: sideways",
       "    startAt: -100",
+      "    excludeCover: incorrect",
       "    futureStyle: roman",
       "  page:",
       "    size: Letter",
@@ -197,11 +215,12 @@ describe("portable Markdown front matter", () => {
       enabled: true,
       position: "bottom-center",
       startAt: 1,
+      excludeCover: false,
     });
     expect(parsed.portableMarkdown.status).toBe("invalid-settings");
 
     const document = asDocument(source);
-    document.settings.pageNumbers = { enabled: true, position: "bottom-left", startAt: 999999 };
+    document.settings.pageNumbers = { enabled: true, position: "bottom-left", startAt: 999999, excludeCover: true };
     const saved = serializeMarkdownFile(document);
     expect(saved).toContain("futureStyle: roman");
     expect(saved).toContain("position: bottom-left");
@@ -225,12 +244,13 @@ describe("portable Markdown front matter", () => {
       enabled: false,
       position: "bottom-right",
       startAt: 3,
+      excludeCover: false,
     });
   });
 
   it("serializes page number settings only when portable metadata is enabled", () => {
     const document = asDocument("# Body");
-    document.settings.pageNumbers = { enabled: true, position: "bottom-right", startAt: 5 };
+    document.settings.pageNumbers = { enabled: true, position: "bottom-right", startAt: 5, excludeCover: true };
     expect(serializeMarkdownFile(document)).toBe("# Body");
 
     document.portableMarkdown.includeDocmarkSettings = true;
@@ -239,6 +259,7 @@ describe("portable Markdown front matter", () => {
     expect(saved).toContain("enabled: true");
     expect(saved).toContain("position: bottom-right");
     expect(saved).toContain("startAt: 5");
+    expect(saved).toContain("excludeCover: true");
   });
 
   it("parses, validates, and serializes header/footer settings as portable v1 metadata", () => {
@@ -345,7 +366,7 @@ describe("portable Markdown front matter", () => {
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 15, right: 20, bottom: 15, left: 20 },
-      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1, excludeCover: true },
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
       typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },

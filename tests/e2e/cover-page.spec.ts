@@ -26,7 +26,7 @@ test("cover is a physical page, renders literal text, and suppresses its decorat
   await expect(physicalPages.nth(0).locator("[data-document-cover]")).toContainText("**Architecture** <script>safe</script>");
   await expect(physicalPages.nth(0).locator("script")).toHaveCount(0);
   await expect(physicalPages.nth(0).locator("[data-page-decoration], [data-page-number]")).toHaveCount(0);
-  await expect(physicalPages.nth(1).locator("[data-page-number]")).toHaveText("2");
+  await expect(physicalPages.nth(1).locator("[data-page-number]")).toHaveText("1");
   await expect(physicalPages.nth(1).locator("[data-page-decoration=header]")).toHaveText("Shared header");
   await page.getByRole("checkbox", { name: "Enable cover page" }).uncheck();
   await page.getByRole("checkbox", { name: "Enable cover page" }).check();
@@ -47,13 +47,13 @@ test("an enabled cover with an empty Markdown body is a single blank cover page"
   await expect(page.locator("[data-document-cover]")).toBeVisible();
 });
 
-test("cover settings persist across reload and duplicate, while TOC uses shifted physical pages", async ({ page }) => {
+test("cover settings persist across reload and duplicate, while TOC uses logical page numbers", async ({ page }) => {
   await page.goto("/editor");
   await expect(markdownEditor(page)).toBeVisible();
   await markdownEditor(page).fill("# Introduction\n\n:::toc\n:::");
   await page.getByRole("checkbox", { name: "Enable cover page" }).check();
   await page.getByRole("textbox", { name: "Cover title" }).fill("Physical cover");
-  await expect(page.locator(".docmark-toc-page").first()).toHaveText("2");
+  await expect(page.locator(".docmark-toc-page").first()).toHaveText("1");
   await expect(page.locator(".physical-page").first()).toHaveAttribute("data-page-kind", "cover");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();

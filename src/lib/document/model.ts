@@ -167,6 +167,10 @@ function normalizeSettings(value: unknown): DocumentSettings {
     startAt: isValidPageNumberStartAt(rawPageNumbers.startAt)
       ? rawPageNumbers.startAt
       : defaults.pageNumbers.startAt,
+    // Missing values identify pre-M6.8.2 records and preserve the old policy.
+    excludeCover: typeof rawPageNumbers.excludeCover === "boolean"
+      ? rawPageNumbers.excludeCover
+      : false,
   };
 
   const normalizeDecoration = (key: "header" | "footer") => {

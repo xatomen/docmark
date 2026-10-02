@@ -1,17 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  getPhysicalHeadingPages,
+  getHeadingDisplayPageNumbers,
   MAX_TOC_PAGINATION_PASSES,
   stabilizeTocPagination,
 } from "@/lib/document/toc";
 
-describe("physical TOC page mapping", () => {
-  it("uses physical page positions, including blank pages", () => {
-    expect(getPhysicalHeadingPages([
+describe("logical TOC page mapping", () => {
+  it("uses the display-number projection and counts blank physical pages", () => {
+    expect(getHeadingDisplayPageNumbers([
+      { headingIds: [] },
       { headingIds: ["before"] },
       { headingIds: [] },
       { headingIds: ["after"] },
-    ])).toEqual({ before: 1, after: 3 });
+    ], [null, 1, 2, 3])).toEqual({ before: 1, after: 3 });
+  });
+
+  it("omits headings on excluded pages and retains logical zero", () => {
+    expect(getHeadingDisplayPageNumbers([
+      { headingIds: ["excluded"] },
+      { headingIds: ["zero"] },
+      { headingIds: ["one"] },
+    ], [null, 0, 1])).toEqual({ zero: 0, one: 1 });
   });
 
   it("stabilizes when the mapping used to render TOC rows equals the paginated mapping", () => {

@@ -76,7 +76,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Portrait and landscape orientation
 - Configurable margins in millimeters
 - Responsive on-screen page scaling
-- Optional physical page numbers at bottom-left, bottom-center, or bottom-right, with a configurable starting number
+- Optional logical page numbers at bottom-left, bottom-center, or bottom-right, with a configurable starting number and cover exclusion
 - Automatic pagination based on rendered browser layout
 - Manual page breaks using the Docmark block directive:
 
@@ -84,7 +84,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
   :::pagebreak
   :::
   ```
-- Automatic Table of Contents at an explicit `:::toc` block. It indexes visible H1–H3 headings, uses measured physical page numbers even when page-number decorations are off or start at another number, and participates in normal pagination and browser print/PDF. Keep the directive in the Markdown source; the generated index is derived content. If a document contains multiple TOC directives, only the first one generates the index. Empty headings and H4–H6 headings are omitted.
+- Automatic Table of Contents at an explicit `:::toc` block. It indexes visible H1–H3 headings, uses logical page numbers even when page-number decorations are off, and participates in normal pagination and browser print/PDF. Keep the directive in the Markdown source; the generated index is derived content. If a document contains multiple TOC directives, only the first one generates the index. Empty headings and H4–H6 headings are omitted.
 - Mermaid diagrams in standard fenced `mermaid` blocks. Mermaid loads locally and dynamically only when a document contains a diagram. The source fence remains in Markdown and is what IndexedDB, Open, Save, and Save As preserve; generated, sanitized SVG is temporary derived content. Rendering is browser-only with no external rendering service or CDN. SVG is measured before pagination and TOC page mapping, remains vector output for Preview and browser Print/Save as PDF, is centered independently of paragraph alignment, and scales proportionally to the printable content box. A diagram stays together on one page; if it cannot fit in the remaining space it moves to the next page, and an extra-tall diagram scales to the full content height. Invalid syntax gets a short in-document error block while other diagrams and PDF export remain available. HTML labels/`foreignObject`, external links/resources, event handlers, and unsafe SVG content are excluded or sanitized. Mermaid's supported types include flowcharts, sequence, class, state, ER, and other types provided by the installed library. Example:
 
   ```mermaid
@@ -133,7 +133,7 @@ docmark:
 
 The **Include Docmark settings in Markdown** option is off for new and ordinary Markdown documents. It starts on when a file already has supported Docmark metadata. Docmark preserves unrelated Front Matter, while the editor shows and edits only the Markdown body. The complete workspace state remains in IndexedDB; the file carries only the optional external metadata and portable page settings. Malformed Front Matter or an unsupported Docmark version is preserved and shown with a non-blocking warning; Docmark does not rewrite that metadata.
 
-Page numbers are optional and default to off. They are physical page decorations, so enabling them does not add Markdown or change pagination. Supported positions are bottom-left (aligned with the content area's left edge), bottom-center (centered on the physical page), and bottom-right (aligned with the content area's right edge). Vertically, the number is centered within the bottom margin when space allows and remains safely inset from the physical page edge for very small margins. `startAt` is a positive integer. Numbers are shared by preview and browser print/PDF, scale with the preview, and are saved in IndexedDB. When portable settings are enabled, the same settings are stored under `docmark.pageNumbers`; otherwise they stay local to the browser document.
+Page-number decorations are optional and default to off. They do not add Markdown or change physical pagination. **Start at** accepts any nonnegative safe integer, including `0`. Logical displayed numbers are resolved from the stable physical page list: manual page breaks and intentional empty content pages consume a number. New documents default to **Exclude cover from numbering**; a cover remains physical page 1 but has no displayed number, and the first content page starts at `startAt`. Without a cover, the exclusion setting has no offset effect. Existing IndexedDB records and v1 Front Matter without `excludeCover` retain the old behavior and include the cover in the sequence. Cover decorations remain hidden either way. Page-number visibility controls only the decoration; the TOC continues to show logical numbers when decorations are off. TOC labels and visible decorations use the same numbering projection. Numbers are shared by Preview and browser Print/PDF, scale with the preview, and are saved in IndexedDB. Portable settings store `startAt` and `excludeCover` under `docmark.pageNumbers`; older v1 metadata without `excludeCover` is read as `false` to preserve its numbering.
 
 ### Automatic Table of Contents
 
@@ -159,7 +159,7 @@ Insert a standalone `:::toc` block where the index should appear:
 ### AWS
 ```
 
-Docmark creates one “Table of Contents” from source H1–H3 headings, including headings before the directive. Labels use their visible text; duplicate headings remain separate entries. Empty headings and H4–H6 are omitted. TOC rows use document typography (including bundled Montserrat), wrap long labels, and can continue across pages. Manual page breaks and blank physical pages affect the listed physical page numbers. These numbers stay independent from the optional Page Numbers decoration and its `startAt` value.
+Docmark creates one “Table of Contents” from source H1–H3 headings, including headings before the directive. Labels use their visible text; duplicate headings remain separate entries. Empty headings and H4–H6 are omitted. TOC rows use document typography (including bundled Montserrat), wrap long labels, and can continue across pages. Manual page breaks and blank physical pages consume logical numbers. The TOC uses the same logical numbering policy as page decorations, including `startAt` (and valid `0`) and cover exclusion; it still displays those numbers when Page Numbers decorations are disabled.
 
 The index uses the same measured pages in Preview and browser Print/PDF. Typography and pagination changes regenerate its page mapping after bundled fonts are ready. Saving, reopening, duplicating, and reloading a Markdown document preserve the `:::toc` source directive; generated rows and page values are derived and do not modify the source or its file dirty state. Only the first directive generates an index; later directives are no-ops. Custom titles, clickable links, and localization are not part of this version.
 
@@ -198,6 +198,7 @@ docmark:
     enabled: true
     position: bottom-center
     startAt: 1
+    excludeCover: true
   header:
     enabled: true
     text: Architecture Report

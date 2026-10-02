@@ -140,10 +140,15 @@ function readSettings(docmark: Record<string, unknown>): {
     startAt: isValidPageNumberStartAt(rawPageNumbers.startAt)
       ? rawPageNumbers.startAt
       : defaults.pageNumbers.startAt,
+    // A missing value is legacy v1 metadata and retains pre-M6.8.2 numbering.
+    excludeCover: typeof rawPageNumbers.excludeCover === "boolean"
+      ? rawPageNumbers.excludeCover
+      : false,
   };
   if (Object.hasOwn(rawPageNumbers, "enabled") && typeof rawPageNumbers.enabled !== "boolean") invalid = true;
   if (Object.hasOwn(rawPageNumbers, "position") && !isPageNumberPosition(rawPageNumbers.position)) invalid = true;
   if (Object.hasOwn(rawPageNumbers, "startAt") && !isValidPageNumberStartAt(rawPageNumbers.startAt)) invalid = true;
+  if (Object.hasOwn(rawPageNumbers, "excludeCover") && typeof rawPageNumbers.excludeCover !== "boolean") invalid = true;
   const readDecoration = (key: "header" | "footer"): HeaderFooterSettings => {
     const raw = docmark[key];
     if (Object.hasOwn(docmark, key) && !isRecord(raw)) {
@@ -336,6 +341,7 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.pageNumbers.enabled === right.pageNumbers.enabled &&
     left.pageNumbers.position === right.pageNumbers.position &&
     left.pageNumbers.startAt === right.pageNumbers.startAt &&
+    left.pageNumbers.excludeCover === right.pageNumbers.excludeCover &&
     left.header.enabled === right.header.enabled &&
     left.header.text === right.header.text &&
     left.header.alignment === right.header.alignment &&
@@ -383,6 +389,7 @@ function updateDocmarkNamespace(
   pageNumbers.set("enabled", settings.pageNumbers.enabled);
   pageNumbers.set("position", settings.pageNumbers.position);
   pageNumbers.set("startAt", settings.pageNumbers.startAt);
+  pageNumbers.set("excludeCover", settings.pageNumbers.excludeCover);
   for (const key of ["header", "footer"] as const) {
     const decoration = getYamlMapFromMap(yamlDocument, docmark, key);
     decoration.set("enabled", settings[key].enabled);

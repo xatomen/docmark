@@ -8,9 +8,22 @@ declare global {
   }
 }
 
-async function expectTocMatchesPhysicalPages(page: Page) {
+async function expectTocMatchesDisplayNumbers(page: Page) {
   const entries = page.locator("article .docmark-toc-entry");
   const count = await entries.count();
+  const startAt = Number(await page.getByLabel("Page number start at").inputValue());
+  const excludeCover = await page.getByLabel("Exclude cover from numbering").isChecked();
+  let nextDisplayPageNumber = startAt;
+  const pageNumbers = await page.locator("article").evaluateAll((articles, shouldExcludeCover) =>
+    articles.map((article) => article.getAttribute("data-page-kind") === "cover" && shouldExcludeCover ? null : "count"),
+    excludeCover,
+  );
+  const displayPageNumbers = pageNumbers.map((entry) => {
+    if (entry === null) return null;
+    const number = nextDisplayPageNumber;
+    nextDisplayPageNumber += 1;
+    return number;
+  });
 
   for (let index = 0; index < count; index += 1) {
     const entry = entries.nth(index);
@@ -19,12 +32,14 @@ async function expectTocMatchesPhysicalPages(page: Page) {
     const heading = page.locator(`[data-docmark-heading-id="${id}"]`).first();
     const article = heading.locator("xpath=ancestor::article");
     const ariaLabel = await article.getAttribute("aria-label");
-    const physicalPage = Number(ariaLabel?.match(/^Page (\d+)/)?.[1]);
-    await expect(entry.locator(".docmark-toc-page")).toHaveText(String(physicalPage));
+    const physicalIndex = Number(ariaLabel?.match(/^Page (\d+)/)?.[1]) - 1;
+    const displayPageNumber = displayPageNumbers[physicalIndex];
+    expect(displayPageNumber).not.toBeNull();
+    await expect(entry.locator(".docmark-toc-page")).toHaveText(String(displayPageNumber));
   }
 }
 
-test("TOC maps headings to physical pages independently of page decorations", async ({ page }) => {
+test("TOC maps headings to logical display numbers independently of decoration visibility", async ({ page }) => {
   await page.goto("/editor");
   const markdown = [
     "# Report before TOC",
@@ -63,14 +78,14 @@ test("TOC maps headings to physical pages independently of page decorations", as
   await expect(page.getByRole("article", { name: "Page 2, blank" })).toBeVisible();
   await expect.poll(async () => Number(await page.locator(".page-list").getAttribute("data-toc-stabilization-passes")))
     .toBeGreaterThan(1);
-  await expectTocMatchesPhysicalPages(page);
+  await expectTocMatchesDisplayNumbers(page);
 
   await page.getByLabel("Show page numbers").check();
   await page.getByLabel("Page number start at").fill("10");
   const formattedEntry = page.locator('article .docmark-toc-entry[data-docmark-toc-entry="docmark-heading-1"]');
-  await expect(formattedEntry.locator(".docmark-toc-page").first()).toHaveText("3");
+  await expect(formattedEntry.locator(".docmark-toc-page").first()).toHaveText("12");
   await expect(page.getByLabel("Page number 12")).toBeVisible();
-  await expectTocMatchesPhysicalPages(page);
+  await expectTocMatchesDisplayNumbers(page);
 
   await expect(markdownEditor(page)).toContainText(":::toc");
   await expect(page.locator("article .docmark-toc-title")).toHaveCount(1);
@@ -87,7 +102,7 @@ test("long TOCs split across physical pages and preserve every source heading", 
   expect(await page.locator("article .docmark-toc").count()).toBeGreaterThan(1);
   await expect.poll(async () => Number(await page.locator(".page-list").getAttribute("data-toc-stabilization-passes")))
     .toBeGreaterThan(1);
-  await expectTocMatchesPhysicalPages(page);
+  await expectTocMatchesDisplayNumbers(page);
   await expect(page.locator("article").last().getByRole("heading", { name: "Section 85" })).toBeVisible();
   const hasHorizontalOverflow = await page.locator("article").evaluateAll((articles) =>
     articles.some((article) => article.scrollWidth > article.clientWidth + 1),

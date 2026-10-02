@@ -13,12 +13,15 @@ export type TocStabilizationResult<T> = TocPaginationPass<T> & {
 
 export const MAX_TOC_PAGINATION_PASSES = 5;
 
-export function getPhysicalHeadingPages(
+export function getHeadingDisplayPageNumbers(
   pages: ReadonlyArray<{ headingIds: readonly string[] }>,
+  displayPageNumbers: ReadonlyArray<number | null>,
 ): Record<string, number> {
   const mapping: Record<string, number> = {};
-  pages.forEach((page, pageIndex) => {
-    for (const id of page.headingIds) mapping[id] = pageIndex + 1;
+  pages.forEach((page, physicalIndex) => {
+    const displayPageNumber = displayPageNumbers[physicalIndex];
+    if (displayPageNumber === null || displayPageNumber === undefined) return;
+    for (const id of page.headingIds) mapping[id] = displayPageNumber;
   });
   return mapping;
 }

@@ -6,6 +6,7 @@ import {
   normalizeStoredDocument,
 } from "@/lib/document/model";
 import { DEFAULT_DOCUMENT_SETTINGS } from "@/lib/document/settings";
+import { resolveDisplayPageNumbers } from "@/lib/document/page-numbering";
 
 describe("DocmarkDocument model", () => {
   it("creates independent documents with stable identity and source fields", () => {
@@ -26,7 +27,7 @@ describe("DocmarkDocument model", () => {
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 17, right: 19, bottom: 21, left: 23 },
-      pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
+      pageNumbers: { enabled: true, position: "bottom-right", startAt: 5, excludeCover: false },
       header: { enabled: true, text: "Header", alignment: "center" },
       footer: { enabled: true, text: "Footer", alignment: "right" },
       typography: { fontFamily: "Georgia", fontSize: 14, lineHeight: 1.6, alignment: "justify" },
@@ -80,7 +81,10 @@ describe("DocmarkDocument model", () => {
       id: "legacy-1",
       title: "Legacy",
       markdown: "# Still here",
-      settings: DEFAULT_DOCUMENT_SETTINGS,
+      settings: {
+        ...DEFAULT_DOCUMENT_SETTINGS,
+        pageNumbers: { ...DEFAULT_DOCUMENT_SETTINGS.pageNumbers, excludeCover: false },
+      },
     });
     expect(normalized && "fileHandle" in normalized).toBe(false);
     expect(normalized?.portableMarkdown).toEqual(createDefaultPortableMarkdownMetadata());
@@ -103,7 +107,26 @@ describe("DocmarkDocument model", () => {
       enabled: false,
       position: "bottom-center",
       startAt: 1,
+      excludeCover: false,
     });
+  });
+
+  it("preserves the old included-cover numbering for persisted M6.8 records", () => {
+    const now = "2024-01-02T00:00:00.000Z";
+    const legacy = normalizeStoredDocument({
+      id: "pre-logical-numbering",
+      title: "Legacy cover numbering",
+      markdown: "# Body",
+      createdAt: now,
+      updatedAt: now,
+      settings: {
+        cover: { enabled: true, title: "Cover" },
+        pageNumbers: { enabled: true, position: "bottom-center", startAt: 5 },
+      },
+    });
+    expect(legacy?.settings.pageNumbers.excludeCover).toBe(false);
+    expect(resolveDisplayPageNumbers([{ kind: "cover" }, { kind: "content" }], legacy!.settings.pageNumbers))
+      .toEqual([5, 6]);
   });
 
   it("defaults missing and unknown stored themes to Default", () => {

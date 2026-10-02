@@ -120,6 +120,7 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.pageNumbers.enabled === right.pageNumbers.enabled &&
     left.pageNumbers.position === right.pageNumbers.position &&
     left.pageNumbers.startAt === right.pageNumbers.startAt &&
+    left.pageNumbers.excludeCover === right.pageNumbers.excludeCover &&
     left.header.enabled === right.header.enabled &&
     left.header.text === right.header.text &&
     left.header.alignment === right.header.alignment &&
@@ -148,6 +149,8 @@ function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolea
     left.margins.right === right.margins.right &&
     left.margins.bottom === right.margins.bottom &&
     left.margins.left === right.margins.left &&
+    left.pageNumbers.startAt === right.pageNumbers.startAt &&
+    left.pageNumbers.excludeCover === right.pageNumbers.excludeCover &&
     left.typography.fontFamily === right.typography.fontFamily &&
     left.typography.fontSize === right.typography.fontSize &&
     left.typography.lineHeight === right.typography.lineHeight &&

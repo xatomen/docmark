@@ -7,10 +7,11 @@ import { paginateDocument } from "@/lib/document/pagination";
 import { PageDecorations } from "@/components/document/page-decorations";
 import { DocumentCover, getDocumentCoverStyle } from "@/components/document/document-cover";
 import { composePhysicalPages, type PhysicalPage } from "@/lib/document/physical-pages";
+import { resolveDisplayPageNumbers } from "@/lib/document/page-numbering";
 import { ensureDocumentFontReady } from "@/lib/document/font-loading";
 import { getDocumentFontDefinition } from "@/lib/document/font-registry";
 import {
-  getPhysicalHeadingPages,
+  getHeadingDisplayPageNumbers,
   stabilizeTocPagination,
   type TocPageMap,
 } from "@/lib/document/toc";
@@ -227,7 +228,11 @@ export function DocumentPreview({
           setTocPasses(0);
         } else {
           const headings = readTocHeadings(renderedContent);
-          const initialPages = Object.fromEntries(headings.map(({ id }) => [id, 1]));
+          const initialDisplayPageNumber = settings.pageNumbers.startAt +
+            Number(settings.cover.enabled && !settings.pageNumbers.excludeCover);
+          const initialPages = Object.fromEntries(
+            headings.map(({ id }) => [id, initialDisplayPageNumber]),
+          );
           const result = stabilizeTocPagination((tocPages) => {
             renderToc(tocMarkers, headings, tocPages);
             const paginated = paginateDocument(
@@ -241,11 +246,12 @@ export function DocumentPreview({
               settings.cover.enabled,
               renderedContent.childNodes.length > 0,
             );
-            const actualHeadingPages = getPhysicalHeadingPages(physicalPages);
+            const displayPageNumbers = resolveDisplayPageNumbers(physicalPages, settings.pageNumbers);
+            const actualHeadingPages = getHeadingDisplayPageNumbers(physicalPages, displayPageNumbers);
             return {
               result: physicalPages,
               headingPages: Object.fromEntries(
-                headings.map(({ id }) => [id, actualHeadingPages[id] ?? 1]),
+                headings.map(({ id }) => [id, actualHeadingPages[id] ?? settings.pageNumbers.startAt]),
               ),
             };
           }, initialPages);
@@ -311,6 +317,7 @@ export function DocumentPreview({
     settings.typography.lineHeight,
     settings.typography.alignment,
     settings.cover.enabled,
+    settings.pageNumbers,
     onPaginationReady,
     renderError,
   ]);
@@ -366,6 +373,7 @@ export function DocumentPreview({
   } as CSSProperties;
   const marginSummary = `${settings.margins.top}/${settings.margins.right}/${settings.margins.bottom}/${settings.margins.left} mm`;
   const printPageStyle = `@page { size: ${dimensions.widthMm}mm ${dimensions.heightMm}mm; margin: 0; }`;
+  const displayPageNumbers = resolveDisplayPageNumbers(pages, settings.pageNumbers);
 
   return (
     <div
@@ -410,8 +418,8 @@ export function DocumentPreview({
                 dangerouslySetInnerHTML={{ __html: page.html }}
               />}
               <PageDecorations
-                pageIndex={index}
                 settings={settings.pageNumbers}
+                displayPageNumber={displayPageNumbers[index] ?? null}
                 header={settings.header}
                 footer={settings.footer}
                 leftMarginMm={settings.margins.left}

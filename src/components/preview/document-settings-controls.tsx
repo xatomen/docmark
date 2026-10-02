@@ -316,11 +316,11 @@ export function DocumentSettingsControls({
           <input
             type="number"
             aria-label="Page number start at"
-            min={1}
+            min={0}
             step={1}
             value={settings.pageNumbers.startAt}
-            disabled={!settings.pageNumbers.enabled}
             onChange={(event) => {
+              if (event.target.value.trim() === "") return;
               const value = Number(event.target.value);
               if (!isValidPageNumberStartAt(value)) return;
               onChange({
@@ -330,6 +330,20 @@ export function DocumentSettingsControls({
             }}
             className="w-20 rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
           />
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            aria-label="Exclude cover from numbering"
+            checked={settings.pageNumbers.excludeCover}
+            disabled={!settings.cover.enabled}
+            onChange={(event) => onChange({
+              ...settings,
+              pageNumbers: { ...settings.pageNumbers, excludeCover: event.target.checked },
+            })}
+            className="accent-accent"
+          />
+          Exclude cover from numbering
         </label>
       </fieldset>
       {(["header", "footer"] as const).map((key) => {

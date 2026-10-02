@@ -24,6 +24,7 @@ export type PageNumberSettings = {
   enabled: boolean;
   position: PageNumberPosition;
   startAt: number;
+  excludeCover: boolean;
 };
 
 export const DOCUMENT_FONT_SIZES = [9, 10, 11, 12, 14, 16] as const;
@@ -81,7 +82,7 @@ export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
   pageSize: "a4",
   orientation: "portrait",
   margins: { top: 20, right: 20, bottom: 20, left: 20 },
-  pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
+  pageNumbers: { enabled: false, position: "bottom-center", startAt: 1, excludeCover: true },
   header: { enabled: false, text: "", alignment: "left" },
   footer: { enabled: false, text: "", alignment: "left" },
   typography: { fontFamily: "Arial", fontSize: 11, lineHeight: 1.75, alignment: "left" },
@@ -113,11 +114,7 @@ export function isPageNumberPosition(value: unknown): value is PageNumberPositio
 }
 
 export function isValidPageNumberStartAt(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
-}
-
-export function getPageNumber(displayStartAt: number, physicalPageIndex: number): number {
-  return displayStartAt + physicalPageIndex;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 export const MAX_PAGE_MARGIN_MM = 100;

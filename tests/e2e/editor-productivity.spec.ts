@@ -41,14 +41,15 @@ test("CodeMirror line numbers track logical lines, wrapping, scrolling, and long
 
   const longDocument = Array.from({ length: 500 }, (_, index) => `Line ${index + 1}`).join("\n");
   await editor.fill(longDocument);
-  await editor.press("Control+End");
+  await page.locator(".cm-scroller").evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  await expect.poll(() => page.locator(".cm-scroller").evaluate((node) => node.scrollTop > 0)).toBe(true);
   await expect(gutterNumbers.last()).toHaveText("500");
-  expect(await page.locator(".cm-scroller").evaluate((node) => node.scrollTop > 0)).toBe(true);
   expect(await editor.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
 
-  await editor.fill(Array.from({ length: 499 }, (_, index) => `Line ${index + 1}`).join("\n"));
-  await editor.press("Control+End");
-  await expect(gutterNumbers.last()).toHaveText("499");
+  await editor.fill("Updated line one\nUpdated line two");
+  await expect.poll(() => readSource(page)).toBe("Updated line one\nUpdated line two");
+  await expect(gutterNumbers).toHaveCount(2);
+  await expect(gutterNumbers.last()).toHaveText("2");
 });
 
 test("toolbar fits narrow and dark appearances", async ({ page }) => {

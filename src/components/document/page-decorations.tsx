@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 import type { PageKind } from "@/lib/document/physical-pages";
-import { getPageNumber, type HeaderFooterSettings, type PageNumberSettings } from "@/lib/document/settings";
+import type { HeaderFooterSettings, PageNumberSettings } from "@/lib/document/settings";
 
 type PageDecorationsProps = {
-  pageIndex: number;
   settings: PageNumberSettings;
+  displayPageNumber: number | null;
   header: HeaderFooterSettings;
   footer: HeaderFooterSettings;
   leftMarginMm: number;
@@ -31,8 +31,8 @@ function DecorationText({
 
 /** Physical page elements rendered separately from measured Markdown content. */
 export function PageDecorations({
-  pageIndex,
   settings,
+  displayPageNumber,
   header,
   footer,
   leftMarginMm,
@@ -53,13 +53,13 @@ export function PageDecorations({
   const numberSlot = settings.enabled ? settings.position.replace("bottom-", "") : null;
   const footerSlot = footer.enabled ? footer.alignment : null;
   const hasCollision = numberSlot !== null && numberSlot === footerSlot && footer.text.length > 0;
-  const number = settings.enabled ? (
+  const number = settings.enabled && displayPageNumber !== null ? (
     <span
       className={`page-number page-number-${settings.position}`}
       data-page-number
-      aria-label={`Page number ${getPageNumber(settings.startAt, pageIndex)}`}
+      aria-label={`Page number ${displayPageNumber}`}
     >
-      {getPageNumber(settings.startAt, pageIndex)}
+      {displayPageNumber}
     </span>
   ) : null;
 
