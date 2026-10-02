@@ -26,6 +26,10 @@ function isToc(node: HTMLElement): boolean {
   return node.hasAttribute("data-docmark-toc");
 }
 
+function isMermaid(node: HTMLElement): boolean {
+  return node.classList.contains("docmark-mermaid");
+}
+
 function cloneNodes(nodes: HTMLElement[]): HTMLElement[] {
   return nodes.map((node) => node.cloneNode(true) as HTMLElement);
 }
@@ -317,6 +321,7 @@ function splitToc(toc: HTMLElement, measure: Measure, maxHeight: number): HTMLEl
 
 function splitOversized(node: HTMLElement, measure: Measure, maxHeight: number) {
   if (isHeading(node)) return [node.cloneNode(true) as HTMLElement];
+  if (isMermaid(node)) return [node.cloneNode(true) as HTMLElement];
   if (isToc(node)) return splitToc(node, measure, maxHeight);
   if (node.tagName === "UL" || node.tagName === "OL") {
     return splitList(node, measure, maxHeight);

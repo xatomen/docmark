@@ -12,6 +12,35 @@
   display: flow-root;
 }
 
+.docmark-mermaid {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.docmark-mermaid svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.docmark-mermaid-error {
+  box-sizing: border-box;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #dfb6b1;
+  border-radius: 0.375rem;
+  color: #713b35;
+  background: #fbf2f0;
+  font-size: 0.9em;
+  text-align: center;
+}
+
 .docmark-toc {
   min-width: 0;
   margin: 0 0 1rem;

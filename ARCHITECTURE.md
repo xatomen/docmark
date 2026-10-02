@@ -59,7 +59,7 @@ The Markdown body, document settings, portable preference and raw Front Matter s
    500 ms autosave ────────────────┘
 ```
 
-Document settings are a separate state path. Sanitized HTML and `DocumentSettings` meet only in `DocumentPreview`:
+Document settings are a separate state path. Sanitized HTML and `DocumentSettings` meet in `DocumentPreview`. Mermaid SVG is derived client-side from Markdown source and is never stored:
 
 ```text
 CodeMirror → Markdown → Markdown pipeline → Sanitized HTML ─┐
@@ -78,7 +78,7 @@ Markdown string
    ↓
 remark-parse + remark-gfm + Docmark directive transform
    ↓
-MDAST
+MDAST (Mermaid source retained in an internal ordered `{ id, source }` model)
    ↓
 remark-rehype
    ↓
@@ -86,7 +86,15 @@ HAST
    ↓
 rehype-sanitize
    ↓
-HTML
+HTML with semantic Mermaid markers
+   ↓
+Only when markers exist: dynamically load local Mermaid in the browser
+   ↓
+Explicit serial render() calls → DOMPurify SVG sanitization + scoped CSS validation
+   ↓
+Resolved SVG or short measured error block
+   ↓
+Bundled-font readiness gate
    ↓
 Sanitized rendered content
    ↓
@@ -96,6 +104,14 @@ Measurement Layer → Pagination Engine → Page[]
                                              ↓
                                         Browser Print Engine → Save as PDF
 ```
+
+The source fence is the only persisted representation. Mermaid blocks are transformed from standard ` ```mermaid ` fences into out-of-band ordered identities and semantic markers; raw source is not copied into marker attributes. `renderMermaidDiagrams` is imported only from the preview's client effect when at least one such model exists, so ordinary Markdown does no Mermaid work. Mermaid 12's explicit `render()` API is used, never its global auto-scan; its types document that multiple renders are queued serially, so Docmark resolves blocks in source order. Each render gets a unique ephemeral DOM ID. Initialization uses `startOnLoad: false`, the `strict` security level, the `neutral` theme, `htmlLabels: false`, and Mermaid's built-in text and edge guards. Disabling HTML labels avoids `foreignObject` and keeps diagrams in SVG for measurement and print.
+
+Generated SVG crosses an independent DOMPurify boundary. Scripts, event attributes, `foreignObject`, images, and non-fragment links are removed. Mermaid's `secure` configuration keys lock the security level, auto-run, complexity guards, HTML labels, theme, theme CSS, and font family against diagram-level init directives. Generated stylesheet rules are accepted only when scoped to that render's unique SVG ID; CSS at-rules, global selectors, external URLs, and script-like values are discarded. Inline URL references are limited to internal SVG fragments. Markdown-authored raw SVG remains governed by the regular Markdown sanitizer. This keeps diagram parsing local and avoids runtime CDN, external renderer, and user-controlled resource requests.
+
+The preview waits for all diagram render results before publishing resolved HTML and starting Measurement/Pagination; fonts are also a readiness gate before pagination. Each bad diagram becomes a short safe error block without blocking its siblings or Print readiness. React effect cleanup prevents stale source/document renders from replacing the current document. TOC stabilization runs only on resolved diagram DOM; it reuses that SVG across TOC passes, settings repagination, and Print. `Page[]` carries the same vector SVG used by Preview and browser Print/PDF; printing does not call Mermaid again.
+
+Before pagination, Mermaid SVG dimensions are read from its intrinsic `viewBox` (or numeric width/height fallback) and scaled with `min(1, availableWidth / intrinsicWidth, availableHeight / intrinsicHeight)`. This fit is repeated from intrinsic dimensions when physical page size, orientation, or margins change, without rerendering Mermaid. CSS centers each diagram and prevents horizontal overflow. The pagination engine treats `.docmark-mermaid` as an indivisible block: it moves to the next page when the remaining area is too short and pre-fit height keeps even a tall diagram within one printable page. SVG remains vector; it is not rasterized. TOC rows and Mermaid SVG are derived document content, with no plugin or general renderer framework.
 
 ## Local Markdown files
 

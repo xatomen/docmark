@@ -18,7 +18,7 @@ Document content stays in the user's browser during the editing and print workfl
 
 No PDF-generation or local-storage libraries are used. Documents are stored in the browser's native IndexedDB; browser printing is provided by the native print engine.
 
-The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
+The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`. Mermaid diagrams use the local `mermaid` dependency and DOMPurify for their generated SVG boundary.
 
 Markdown file Front Matter uses the `yaml` document API to validate Docmark metadata and update its namespace while preserving external fields and YAML comments.
 
@@ -85,6 +85,17 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
   :::
   ```
 - Automatic Table of Contents at an explicit `:::toc` block. It indexes visible H1–H3 headings, uses measured physical page numbers even when page-number decorations are off or start at another number, and participates in normal pagination and browser print/PDF. Keep the directive in the Markdown source; the generated index is derived content. If a document contains multiple TOC directives, only the first one generates the index. Empty headings and H4–H6 headings are omitted.
+- Mermaid diagrams in standard fenced `mermaid` blocks. Mermaid loads locally and dynamically only when a document contains a diagram. The source fence remains in Markdown and is what IndexedDB, Open, Save, and Save As preserve; generated, sanitized SVG is temporary derived content. Rendering is browser-only with no external rendering service or CDN. SVG is measured before pagination and TOC page mapping, remains vector output for Preview and browser Print/Save as PDF, is centered independently of paragraph alignment, and scales proportionally to the printable content box. A diagram stays together on one page; if it cannot fit in the remaining space it moves to the next page, and an extra-tall diagram scales to the full content height. Invalid syntax gets a short in-document error block while other diagrams and PDF export remain available. HTML labels/`foreignObject`, external links/resources, event handlers, and unsafe SVG content are excluded or sanitized. Mermaid's supported types include flowcharts, sequence, class, state, ER, and other types provided by the installed library. Example:
+
+  ```mermaid
+  flowchart LR
+      A[Markdown] --> B[Docmark]
+  ```
+
+  ```mermaid
+  sequenceDiagram
+      A->>B: Render locally
+  ```
 - Print-safe wrapping keeps long code lines, links, and technical identifiers within the page width. Tables stay inside the content area; wrapping increases document height and may increase the page count. Document pages intentionally avoid horizontal scrolling.
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
@@ -186,4 +197,4 @@ docmark:
 
 1. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include Mermaid, KaTeX, and PWA/offline support.
+Planned capabilities include KaTeX and PWA/offline support.

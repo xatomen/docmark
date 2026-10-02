@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { renderMarkdown } from "@/lib/markdown/render-markdown";
+import { renderMarkdownDocument } from "@/lib/markdown/render-markdown";
+import { fitMermaidBlocks } from "@/lib/document/mermaid-geometry";
 import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
 import { PageDecorations } from "@/components/document/page-decorations";
 import { ensureDocumentFontReady } from "@/lib/document/font-loading";
@@ -43,6 +44,19 @@ function readTocHeadings(renderedContent: HTMLElement): TocHeading[] {
       label: visibleHeadingText(heading).replace(/\s+/g, " ").trim(),
     }),
   ).filter((heading) => heading.id && heading.label);
+}
+
+function showMermaidLoadErrors(html: string): string {
+  const host = document.createElement("div");
+  host.innerHTML = html;
+  for (const marker of Array.from(host.querySelectorAll("[data-docmark-mermaid]"))) {
+    const error = document.createElement("div");
+    error.className = "docmark-mermaid-error";
+    error.setAttribute("role", "note");
+    error.textContent = "This Mermaid diagram could not be rendered.";
+    marker.replaceWith(error);
+  }
+  return host.innerHTML;
 }
 
 function renderToc(
@@ -144,10 +158,19 @@ export function DocumentPreview({
 
     onPaginationReady(false);
 
-    renderMarkdown(markdown)
-      .then((renderedHtml) => {
+    renderMarkdownDocument(markdown)
+      .then(async ({ html: renderedHtml, mermaidDiagrams }) => {
+        let resolvedHtml = renderedHtml;
+        if (mermaidDiagrams.length) {
+          try {
+            const { renderMermaidDiagrams } = await import("@/lib/document/render-mermaid");
+            resolvedHtml = await renderMermaidDiagrams(renderedHtml, mermaidDiagrams);
+          } catch {
+            resolvedHtml = showMermaidLoadErrors(renderedHtml);
+          }
+        }
         if (active) {
-          setHtml(renderedHtml);
+          setHtml(resolvedHtml);
           setRenderError(false);
         }
       })
@@ -184,6 +207,10 @@ export function DocumentPreview({
       if (!active || generation !== paginationGeneration.current) return;
       onPaginationReady(false);
       try {
+        fitMermaidBlocks(renderedContent, {
+          width: contentWidthMm * PX_PER_MM,
+          height: Math.max(1, contentHeightPx - 16),
+        });
         const tocMarkers = Array.from(
           renderedContent.querySelectorAll<HTMLElement>("[data-docmark-toc]"),
         );
