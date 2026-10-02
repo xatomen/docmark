@@ -38,6 +38,10 @@ pnpm lint
 pnpm build
 ```
 
+Run the automated tests with `pnpm test`. Vitest covers domain, Markdown, file-validation, and IndexedDB persistence logic. Playwright exercises browser workflows in headless Chromium, including real pagination and the file input/download fallback. Install Chromium once with `pnpm exec playwright install chromium`. The end-to-end server uses port 3100 and its own `.next-e2e` build directory, so it can run beside the usual development server.
+
+Run either layer independently with `pnpm test:unit` or `pnpm test:e2e`. Use `pnpm test:unit:watch` while developing unit tests.
+
 ## Architecture
 
 The App Router pages and root layout use Server Components by default. The interactive workspace owns Markdown state, while the CodeMirror editor and live preview use focused Client Component boundaries. CodeMirror is the input layer; it does not parse or render the preview.

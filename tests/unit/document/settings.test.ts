@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import {
+  getMarginValidationError,
+  getPageDimensions,
+  type PageSize,
+} from "@/lib/document/settings";
+
+describe("physical page settings", () => {
+  it.each<PageSize>(["a4", "letter"])("keeps %s portrait taller than it is wide", (pageSize) => {
+    const dimensions = getPageDimensions(pageSize, "portrait");
+    expect(dimensions.heightMm).toBeGreaterThan(dimensions.widthMm);
+  });
+
+  it.each<PageSize>(["a4", "letter"])("swaps %s dimensions in landscape", (pageSize) => {
+    const portrait = getPageDimensions(pageSize, "portrait");
+    const landscape = getPageDimensions(pageSize, "landscape");
+    expect(landscape.widthMm).toBe(portrait.heightMm);
+    expect(landscape.heightMm).toBe(portrait.widthMm);
+  });
+
+  it("rejects margin values above the documented limit", () => {
+    expect(getMarginValidationError(
+      { top: 20, right: 101, bottom: 20, left: 20 },
+      getPageDimensions("a4", "portrait"),
+    )).toMatch(/100 mm or less/i);
+  });
+
+  it("rejects negative or non-finite margins", () => {
+    const dimensions = getPageDimensions("a4", "portrait");
+    expect(getMarginValidationError(
+      { top: -1, right: 20, bottom: 20, left: 20 }, dimensions,
+    )).toMatch(/cannot be negative/i);
+    expect(getMarginValidationError(
+      { top: Number.NaN, right: 20, bottom: 20, left: 20 }, dimensions,
+    )).toMatch(/valid number/i);
+  });
+
+  it("accepts finite nonnegative margins within the page", () => {
+    expect(getMarginValidationError(
+      { top: 12.5, right: 18, bottom: 12.5, left: 18 },
+      getPageDimensions("letter", "landscape"),
+    )).toBeNull();
+  });
+});

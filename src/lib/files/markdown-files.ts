@@ -35,7 +35,7 @@ const MARKDOWN_ACCEPT: FilePickerType[] = [
   },
 ];
 
-const MAX_MARKDOWN_FILE_SIZE = 100 * 1024 * 1024;
+export const MAX_MARKDOWN_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 export type PickedMarkdownFile = {
   file: File;
@@ -143,11 +143,11 @@ export function downloadMarkdownFile(filename: string, markdown: string): void {
   }
 }
 
-function validateMarkdownFile(file: File): void {
+export function validateMarkdownFile(file: Pick<File, "name" | "size">): void {
   if (!/\.(?:md|markdown)$/i.test(file.name)) {
     throw new Error("Choose a Markdown file ending in .md or .markdown.");
   }
-  if (file.size > MAX_MARKDOWN_FILE_SIZE) {
+  if (file.size > MAX_MARKDOWN_FILE_SIZE_BYTES) {
     throw new Error("This Markdown file is larger than the 100 MB limit.");
   }
 }

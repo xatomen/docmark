@@ -10,6 +10,7 @@ import { DocumentSettingsControls } from "@/components/preview/document-settings
 import {
   createDocmarkDocument,
   DEFAULT_DOCUMENT_TITLE,
+  duplicateDocmarkDocument,
   type DocmarkDocument,
   type DocmarkDocumentSummary,
 } from "@/lib/document/model";
@@ -427,11 +428,7 @@ export function EditorWorkspace() {
           ? documentRef.current
           : await getDocument(id);
         if (!source) throw new Error("This document is no longer available.");
-        const duplicate = createDocmarkDocument(
-          source.markdown,
-          source.settings,
-          `${source.title} copy`,
-        );
+        const duplicate = duplicateDocmarkDocument(source);
         await putDocument(duplicate, { activate: true });
         await finishActivation(duplicate);
       }))

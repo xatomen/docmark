@@ -175,6 +175,14 @@ Markdown, images, and printed output are not sent to servers for core document f
 
 The corresponding UI is grouped under `components/editor`, `components/preview`, `components/document`, and `components/ui`. Shared hooks, domain types, and document-specific styles belong in `hooks`, `types`, and `styles`. Directories will be added as implementation needs arise rather than kept empty.
 
+## Testing strategy
+
+Pure domain behavior, settings validation, Markdown transformation and sanitization, local-file validation, and IndexedDB repository behavior are tested with Vitest in Node. Persistence tests use `fake-indexeddb` so they can verify document isolation, metadata, and deletion behavior without a browser server.
+
+Playwright runs editor, persistence, document-management, file, and pagination flows in isolated Chromium contexts. The pagination engine depends on browser fonts, layout geometry, `DOM Range`, and `ResizeObserver`, so those behaviors are exercised in Chromium instead of mocked DOM tests. Browser IndexedDB is exercised in an end-to-end reload test. The native file picker and print dialog are user-controlled browser APIs; tests mock the picker API for Save As races and spy on `window.print`, while the fallback file input and download path run in Chromium.
+
+Autosave race coverage uses Playwright's clock to advance the debounce deterministically rather than waiting on arbitrary sleeps. Run the full suite with `pnpm test`, or run `pnpm test:unit` and `pnpm test:e2e` independently. E2E runs a local Next.js dev server on port 3100 with `.next-e2e` as its isolated build directory.
+
 ## Future capabilities
 
 These are planned and are not implemented yet:

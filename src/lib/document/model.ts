@@ -119,6 +119,17 @@ export function createDocmarkDocument(
   };
 }
 
+/** Duplicate only workspace data; filesystem handles remain runtime-only. */
+export function duplicateDocmarkDocument(
+  source: Pick<DocmarkDocument, "title" | "markdown" | "settings">,
+): DocmarkDocument {
+  return createDocmarkDocument(
+    source.markdown,
+    source.settings,
+    `${source.title} copy`,
+  );
+}
+
 /** Validate and normalize an IndexedDB record without discarding its Markdown. */
 export function normalizeStoredDocument(
   value: unknown,
