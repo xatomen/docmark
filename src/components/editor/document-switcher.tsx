@@ -2,8 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Dropdown, Label, Popover } from "@heroui/react";
+import { Check, ChevronDown, Ellipsis, Plus } from "lucide-react";
 import type { DocmarkDocumentSummary } from "@/lib/document/model";
-import { CheckIcon, ChevronDownIcon, MoreHorizontalIcon, PlusIcon } from "@/components/editor/ui-icons";
 
 type DocumentSwitcherProps = {
   activeDocumentId: string;
@@ -78,7 +78,7 @@ export function DocumentSwitcher({
         className="min-w-0 max-w-[min(34vw,24rem)] justify-between gap-2"
       >
         <span className="truncate">{activeTitle}</span>
-        <ChevronDownIcon className="size-4 shrink-0 text-muted" />
+        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted" />
       </Button>
       <Popover.Content
         placement="bottom start"
@@ -94,7 +94,7 @@ export function DocumentSwitcher({
               size="sm"
               className="shrink-0"
             >
-              <PlusIcon className="size-4" />
+              <Plus aria-hidden="true" className="size-4" />
               New document
             </Button>
           </div>
@@ -129,7 +129,7 @@ export function DocumentSwitcher({
                         className="col-start-1 row-start-1 min-w-0 justify-start gap-2 text-left"
                       >
                         <span className="grid size-4 shrink-0 place-items-center">
-                          {isActive && <CheckIcon className="size-4 text-accent" />}
+                          {isActive && <Check aria-hidden="true" className="size-4 text-accent" />}
                         </span>
                         <span className="min-w-0 flex-1 truncate">{document.title}</span>
                         {isActive && <span className="sr-only">Active</span>}
@@ -145,7 +145,7 @@ export function DocumentSwitcher({
                             aria-label={`Actions for ${document.title}`}
                             className="shrink-0"
                           >
-                            <MoreHorizontalIcon className="size-4" />
+                            <Ellipsis aria-hidden="true" className="size-[18px]" />
                           </Button>
                           <Dropdown.Popover
                             placement="bottom end"

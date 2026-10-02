@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { Button, Tooltip } from "@heroui/react";
+import { Check, CircleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircleIcon, CheckIcon } from "@/components/editor/ui-icons";
 import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
 import { DocumentSwitcher } from "@/components/editor/document-switcher";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
@@ -855,8 +855,8 @@ export function EditorWorkspace() {
             aria-live="polite"
             className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-4 sm:flex-initial sm:max-w-[min(30vw,24rem)] ${persistenceStatus === "error" ? "text-red-700 dark:text-red-300" : "text-muted"}`}
           >
-            {persistenceStatus === "saved" && <CheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />}
-            {persistenceStatus === "error" && <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />}
+            {persistenceStatus === "saved" && <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent" />}
+            {persistenceStatus === "error" && <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
             <span className={persistenceStatus === "error" ? "break-words" : "truncate"}>
               {statusText[persistenceStatus]}
               {persistenceStatus === "error" && documentError ? `: ${documentError}` : ""}

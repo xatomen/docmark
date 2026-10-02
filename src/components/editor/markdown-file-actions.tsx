@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { Button, Dropdown, Label } from "@heroui/react";
-import { ChevronDownIcon } from "@/components/editor/ui-icons";
+import { ChevronDown } from "lucide-react";
 import {
   isPickerCancellation,
   pickMarkdownFile,
@@ -49,7 +49,7 @@ export function MarkdownFileActions({
       <Dropdown>
         <Button variant="tertiary" size="sm" className="shrink-0 gap-1.5">
           File
-          <ChevronDownIcon className="size-3.5 text-muted" />
+          <ChevronDown aria-hidden="true" className="size-4 text-muted" />
         </Button>
         <Dropdown.Popover className="w-52 rounded-[var(--docmark-radius-overlay)] border border-border bg-overlay text-foreground shadow-[var(--overlay-shadow)]">
           <Dropdown.Menu disabledKeys={disabled ? ["open", "save", "save-as"] : []} onAction={(action) => {
