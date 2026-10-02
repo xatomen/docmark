@@ -22,6 +22,7 @@ import {
   type TypographySettings,
   type PageMargins,
 } from "@/lib/document/settings";
+import { isDocumentThemeId, type DocumentThemeId } from "@/lib/document/themes";
 
 const UTF8_BOM = "\uFEFF";
 
@@ -80,6 +81,8 @@ function readSettings(docmark: Record<string, unknown>): {
 } {
   const defaults = DEFAULT_DOCUMENT_SETTINGS;
   let invalid = false;
+  const theme: DocumentThemeId = isDocumentThemeId(docmark.theme) ? docmark.theme : defaults.theme;
+  if (Object.hasOwn(docmark, "theme") && !isDocumentThemeId(docmark.theme)) invalid = true;
   if (Object.hasOwn(docmark, "page") && !isRecord(docmark.page)) invalid = true;
   const page = isRecord(docmark.page) ? docmark.page : {};
   if (Object.hasOwn(page, "size") && page.size !== "A4" && page.size !== "Letter") invalid = true;
@@ -123,7 +126,7 @@ function readSettings(docmark: Record<string, unknown>): {
   }
   if (getMarginValidationError(margins, dimensions)) {
     invalid = true;
-    return { settings: { ...defaults, margins: { ...defaults.margins } }, invalid };
+    return { settings: { ...defaults, theme, margins: { ...defaults.margins } }, invalid };
   }
   if (Object.hasOwn(docmark, "pageNumbers") && !isRecord(docmark.pageNumbers)) invalid = true;
   const rawPageNumbers = isRecord(docmark.pageNumbers) ? docmark.pageNumbers : {};
@@ -168,7 +171,7 @@ function readSettings(docmark: Record<string, unknown>): {
   if (Object.hasOwn(rawTypography, "fontSize") && !isDocumentFontSize(rawTypography.fontSize)) invalid = true;
   if (Object.hasOwn(rawTypography, "lineHeight") && !isDocumentLineHeight(rawTypography.lineHeight)) invalid = true;
   if (Object.hasOwn(rawTypography, "alignment") && !isDocumentTextAlignment(rawTypography.alignment)) invalid = true;
-  return { settings: { pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer"), typography }, invalid };
+  return { settings: { theme, pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer"), typography }, invalid };
 }
 
 export function getPortableMarkdownWarning(metadata: PortableMarkdownMetadata): string | null {
@@ -293,6 +296,7 @@ export function parseMarkdownFile(source: string): ParsedMarkdownFile {
 function getDocumentSnapshot(document: Pick<DocmarkDocument, "settings">) {
   return {
     version: 1,
+    theme: document.settings.theme,
     page: {
       size: document.settings.pageSize === "a4" ? "A4" : "Letter",
       orientation: document.settings.orientation,
@@ -305,7 +309,8 @@ function getDocumentSnapshot(document: Pick<DocmarkDocument, "settings">) {
 }
 
 function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean {
-  return left.pageSize === right.pageSize &&
+  return left.theme === right.theme &&
+    left.pageSize === right.pageSize &&
     left.orientation === right.orientation &&
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&
@@ -345,6 +350,7 @@ function updateDocmarkNamespace(
   const docmark = getYamlMap(yamlDocument, "docmark");
   const snapshot = getDocumentSnapshot({ settings });
   docmark.set("version", snapshot.version);
+  docmark.set("theme", snapshot.theme);
   const page = getYamlMapFromMap(yamlDocument, docmark, "page");
   page.set("size", snapshot.page.size);
   page.set("orientation", snapshot.page.orientation);

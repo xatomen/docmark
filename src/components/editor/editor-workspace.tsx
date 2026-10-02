@@ -109,6 +109,7 @@ function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSna
 
 function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean {
   return (
+    left.theme === right.theme &&
     left.pageSize === right.pageSize &&
     left.orientation === right.orientation &&
     left.margins.top === right.margins.top &&
@@ -133,6 +134,7 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
 
 function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolean {
   return left.pageSize === right.pageSize &&
+    left.theme === right.theme &&
     left.orientation === right.orientation &&
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&

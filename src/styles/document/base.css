@@ -1,11 +1,122 @@
 .document-theme {
-  color: #282a27;
+  --doc-text-color: #282a27;
+  --doc-heading-color: #20211e;
+  --doc-heading-spacing-before: 2rem;
+  --doc-heading-spacing-after: 0.75rem;
+  --doc-heading-border: #dedfd9;
+  --doc-paragraph-spacing: 1rem;
+  --doc-list-spacing: 1rem;
+  --doc-list-item-spacing: 0.25rem;
+  --doc-link-color: #456c49;
+  --doc-blockquote-color: #686c64;
+  --doc-blockquote-border: #91b993;
+  --doc-blockquote-background: transparent;
+  --doc-blockquote-radius: 0;
+  --doc-code-border: #dedfd9;
+  --doc-code-background: #f5f5f2;
+  --doc-inline-code-border: #e1e2dc;
+  --doc-inline-code-background: #f3f3f0;
+  --doc-table-border: #dedfd9;
+  --doc-table-header-background: #f3f3f0;
+  --doc-table-cell-padding: 0.5rem 0.75rem;
+  --doc-rule-color: #dedfd9;
+  --doc-toc-border: #dedfd9;
+  --doc-toc-spacing: 0.35em;
+  --doc-mermaid-border: transparent;
+  --doc-mermaid-border-width: 0;
+  --doc-mermaid-background: transparent;
+  --doc-mermaid-padding: 0;
+  color: var(--doc-text-color);
   font-family: var(--doc-font-family, Arial, Helvetica, sans-serif);
   font-size: var(--doc-font-size, 11pt);
   line-height: var(--doc-line-height, 1.75);
   text-align: left;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.document-theme.docmark-theme-technical {
+  --doc-heading-color: #243747;
+  --doc-heading-spacing-before: 2.1rem;
+  --doc-heading-spacing-after: 0.65rem;
+  --doc-heading-border: #bdcbd5;
+  --doc-paragraph-spacing: 0.9rem;
+  --doc-list-spacing: 0.9rem;
+  --doc-link-color: #36586f;
+  --doc-blockquote-color: #405768;
+  --doc-blockquote-border: #738b9c;
+  --doc-blockquote-background: #f4f7f8;
+  --doc-blockquote-radius: 0 0.2rem 0.2rem 0;
+  --doc-code-border: #c5d0d8;
+  --doc-code-background: #eef2f5;
+  --doc-inline-code-border: #d3dce2;
+  --doc-inline-code-background: #f0f3f5;
+  --doc-table-border: #c2cdd5;
+  --doc-table-header-background: #e8eef2;
+  --doc-table-cell-padding: 0.42rem 0.65rem;
+  --doc-rule-color: #c8d1d8;
+  --doc-toc-border: #bdcbd5;
+  --doc-toc-spacing: 0.25em;
+  --doc-mermaid-border: #d6dfe5;
+  --doc-mermaid-border-width: 1px;
+  --doc-mermaid-background: #f7f9fa;
+  --doc-mermaid-padding: 0.5rem;
+}
+
+.document-theme.docmark-theme-academic {
+  --doc-heading-color: #302d29;
+  --doc-heading-spacing-before: 2rem;
+  --doc-heading-spacing-after: 0.8rem;
+  --doc-heading-border: #d8d5cf;
+  --doc-paragraph-spacing: 1.15rem;
+  --doc-list-spacing: 1.15rem;
+  --doc-link-color: #4b514d;
+  --doc-blockquote-color: #5b5954;
+  --doc-blockquote-border: #aaa69d;
+  --doc-blockquote-background: transparent;
+  --doc-blockquote-radius: 0;
+  --doc-code-border: #dedbd5;
+  --doc-code-background: #f7f6f3;
+  --doc-inline-code-border: #e4e1db;
+  --doc-inline-code-background: #f6f5f2;
+  --doc-table-border: #d5d2cc;
+  --doc-table-header-background: #faf9f7;
+  --doc-table-cell-padding: 0.45rem 0.7rem;
+  --doc-rule-color: #d8d5cf;
+  --doc-toc-border: #d8d5cf;
+  --doc-toc-spacing: 0.45em;
+  --doc-mermaid-border: transparent;
+  --doc-mermaid-border-width: 0;
+  --doc-mermaid-background: transparent;
+  --doc-mermaid-padding: 0;
+}
+
+.document-theme.docmark-theme-minimal {
+  --doc-heading-color: #292c29;
+  --doc-heading-spacing-before: 2.2rem;
+  --doc-heading-spacing-after: 0.9rem;
+  --doc-heading-border: #e7e8e4;
+  --doc-paragraph-spacing: 1.15rem;
+  --doc-list-spacing: 1.1rem;
+  --doc-link-color: #465e50;
+  --doc-blockquote-color: #676c66;
+  --doc-blockquote-border: #c7cec7;
+  --doc-blockquote-background: transparent;
+  --doc-blockquote-radius: 0;
+  --doc-code-border: #e5e7e2;
+  --doc-code-background: #f7f8f6;
+  --doc-inline-code-border: #e8e9e5;
+  --doc-inline-code-background: #f7f8f6;
+  --doc-table-border: #e2e4df;
+  --doc-table-header-background: #fafbf9;
+  --doc-table-cell-padding: 0.55rem 0.75rem;
+  --doc-rule-color: #e5e7e2;
+  --doc-toc-border: #e5e7e2;
+  --doc-toc-spacing: 0.5em;
+  --doc-mermaid-border: #eceeea;
+  --doc-mermaid-border-width: 1px;
+  --doc-mermaid-background: #fbfcfa;
+  --doc-mermaid-padding: 0.25rem;
 }
 
 .document-content {
@@ -19,6 +130,11 @@
   margin: 0 auto 1rem;
   text-align: center;
   break-inside: avoid;
+  box-sizing: border-box;
+  border: var(--doc-mermaid-border-width, 0) solid var(--doc-mermaid-border, transparent);
+  border-radius: 0.3rem;
+  background: var(--doc-mermaid-background, transparent);
+  padding: var(--doc-mermaid-padding, 0);
 }
 
 .docmark-mermaid svg {
@@ -51,8 +167,8 @@
 .docmark-toc-title {
   margin: 0 0 0.75rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid #dedfd9;
-  color: #20211e;
+  border-bottom: 1px solid var(--doc-toc-border);
+  color: var(--doc-heading-color);
   font-size: 1.466667em;
   font-weight: 650;
   line-height: 1.25;
@@ -62,7 +178,7 @@
 .docmark-toc-list {
   display: grid;
   min-width: 0;
-  gap: 0.35em;
+  gap: var(--doc-toc-spacing);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -107,7 +223,7 @@
 .document-theme h2,
 .document-theme h3,
 .document-theme h4 {
-  color: #20211e;
+  color: var(--doc-heading-color);
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.025em;
@@ -115,24 +231,24 @@
 }
 
 .document-theme h1 {
-  margin: 0 0 1.25rem;
+  margin: 0 0 calc(var(--doc-heading-spacing-after) * 1.66666667);
   font-size: 2.133333em;
 }
 
 .document-theme h2 {
-  margin: 2rem 0 0.75rem;
+  margin: var(--doc-heading-spacing-before) 0 var(--doc-heading-spacing-after);
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid #dedfd9;
+  border-bottom: 1px solid var(--doc-heading-border);
   font-size: 1.466667em;
 }
 
 .document-theme h3 {
-  margin: 1.5rem 0 0.5rem;
+  margin: calc(var(--doc-heading-spacing-before) * 0.75) 0 calc(var(--doc-heading-spacing-after) * 0.66666667);
   font-size: 1.2em;
 }
 
 .document-theme h4 {
-  margin: 1.25rem 0 0.5rem;
+  margin: calc(var(--doc-heading-spacing-before) * 0.625) 0 calc(var(--doc-heading-spacing-after) * 0.66666667);
   font-size: 1.066667em;
 }
 
@@ -142,7 +258,12 @@
 .document-theme blockquote,
 .document-theme pre,
 .document-theme table {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--doc-paragraph-spacing);
+}
+
+.document-theme ul,
+.document-theme ol {
+  margin-bottom: var(--doc-list-spacing);
 }
 
 .document-theme p {
@@ -150,7 +271,7 @@
 }
 
 .document-theme a {
-  color: #456c49;
+  color: var(--doc-link-color);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -170,13 +291,15 @@
 }
 
 .document-theme li + li {
-  margin-top: 0.25rem;
+  margin-top: var(--doc-list-item-spacing);
 }
 
 .document-theme blockquote {
   padding: 0.125rem 0 0.125rem 1rem;
-  border-left: 3px solid #91b993;
-  color: #686c64;
+  border-left: 3px solid var(--doc-blockquote-border);
+  border-radius: var(--doc-blockquote-radius, 0);
+  background: var(--doc-blockquote-background);
+  color: var(--doc-blockquote-color);
 }
 
 .document-theme blockquote > :last-child {
@@ -185,9 +308,9 @@
 
 .document-theme :not(pre) > code {
   max-width: 100%;
-  border: 1px solid #e1e2dc;
+  border: 1px solid var(--doc-inline-code-border);
   border-radius: 0.25rem;
-  background: #f3f3f0;
+  background: var(--doc-inline-code-background);
   padding: 0.12em 0.35em;
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 0.875em;
@@ -203,9 +326,9 @@
   min-width: 0;
   overflow-x: visible;
   overflow-wrap: anywhere;
-  border: 1px solid #dedfd9;
+  border: 1px solid var(--doc-code-border);
   border-radius: 0.375rem;
-  background: #f5f5f2;
+  background: var(--doc-code-background);
   padding: 1rem;
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 0.866667em;
@@ -241,22 +364,22 @@
 .document-theme th,
 .document-theme td {
   min-width: 0;
-  border: 1px solid #dedfd9;
-  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--doc-table-border);
+  padding: var(--doc-table-cell-padding);
   overflow-wrap: anywhere;
   text-align: left;
   vertical-align: top;
 }
 
 .document-theme th {
-  background: #f3f3f0;
+  background: var(--doc-table-header-background);
   font-weight: 600;
 }
 
 .document-theme hr {
   margin: 1.75rem 0;
   border: 0;
-  border-top: 1px solid #dedfd9;
+  border-top: 1px solid var(--doc-rule-color);
 }
 
 .document-theme input[type="checkbox"] {
@@ -275,4 +398,57 @@
 .document-theme li:has(> input[type="checkbox"]) {
   list-style: none;
   margin-left: -1.25rem;
+}
+
+.document-theme.docmark-theme-technical h1,
+.document-theme.docmark-theme-technical h2,
+.document-theme.docmark-theme-technical h3 {
+  letter-spacing: -0.015em;
+}
+
+.document-theme.docmark-theme-technical h3 {
+  font-weight: 700;
+}
+
+.document-theme.docmark-theme-technical blockquote {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.document-theme.docmark-theme-academic h1,
+.document-theme.docmark-theme-academic h2,
+.document-theme.docmark-theme-academic h3,
+.document-theme.docmark-theme-academic h4 {
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.document-theme.docmark-theme-academic h2 {
+  border-bottom-style: double;
+  border-bottom-width: 2px;
+}
+
+.document-theme.docmark-theme-academic blockquote {
+  padding-left: 1.25rem;
+  font-style: italic;
+}
+
+.document-theme.docmark-theme-minimal h1,
+.document-theme.docmark-theme-minimal h2,
+.document-theme.docmark-theme-minimal h3,
+.document-theme.docmark-theme-minimal h4 {
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.document-theme.docmark-theme-minimal h2 {
+  border-bottom-color: transparent;
+}
+
+.document-theme.docmark-theme-minimal blockquote {
+  padding-left: 1.15rem;
+}
+
+.document-theme.docmark-theme-minimal pre {
+  border-radius: 0.2rem;
 }

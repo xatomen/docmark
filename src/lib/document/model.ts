@@ -15,6 +15,7 @@ import {
   type PageOrientation,
   type PageSize,
 } from "@/lib/document/settings";
+import { isDocumentThemeId } from "@/lib/document/themes";
 
 export const DEFAULT_DOCUMENT_TITLE = "Untitled document";
 
@@ -82,6 +83,7 @@ function createDocumentId(): string {
 
 function copySettings(settings: DocumentSettings): DocumentSettings {
   return {
+    theme: settings.theme,
     pageSize: settings.pageSize,
     orientation: settings.orientation,
     margins: { ...settings.margins },
@@ -191,7 +193,16 @@ function normalizeSettings(value: unknown): DocumentSettings {
       : defaults.typography.alignment,
   };
 
-  return { pageSize, orientation, margins, pageNumbers, header: normalizeDecoration("header"), footer: normalizeDecoration("footer"), typography };
+  return {
+    theme: isDocumentThemeId(source.theme) ? source.theme : defaults.theme,
+    pageSize,
+    orientation,
+    margins,
+    pageNumbers,
+    header: normalizeDecoration("header"),
+    footer: normalizeDecoration("footer"),
+    typography,
+  };
 }
 
 /** Build a document on the client; call only after browser initialization. */

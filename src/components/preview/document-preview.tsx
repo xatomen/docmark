@@ -17,6 +17,7 @@ import {
   getPageDimensions,
   type DocumentSettings,
 } from "@/lib/document/settings";
+import { getDocumentThemeDefinition } from "@/lib/document/themes";
 
 type DocumentPreviewProps = {
   markdown: string;
@@ -286,6 +287,7 @@ export function DocumentPreview({
     contentHeightMm,
     contentHeightPx,
     settings.pageSize,
+    settings.theme,
     settings.orientation,
     settings.margins.top,
     settings.margins.right,
@@ -335,6 +337,8 @@ export function DocumentPreview({
     "--doc-line-height": settings.typography.lineHeight,
     "--doc-text-align": settings.typography.alignment,
   } as CSSProperties;
+  const theme = getDocumentThemeDefinition(settings.theme);
+  const documentThemeClass = `document-theme ${theme.className}`;
   const pageStyle = {
     width: `${dimensions.widthMm}mm`,
     height: `${dimensions.heightMm}mm`,
@@ -379,7 +383,8 @@ export function DocumentPreview({
               aria-label={`Page ${index + 1}${page.isBlank ? ", blank" : ""}`}
             >
               <div
-                className="document-theme document-content"
+                className={`${documentThemeClass} document-content`}
+                data-docmark-theme={theme.id}
                 style={contentStyle}
                 dangerouslySetInnerHTML={{ __html: page.html }}
               />
@@ -418,13 +423,15 @@ export function DocumentPreview({
       <div className="measurement-layer" aria-hidden="true" inert>
         <div
           ref={renderedMeasurementRef}
-          className="document-theme document-content"
+          className={`${documentThemeClass} document-content`}
+          data-docmark-theme={theme.id}
           style={contentStyle}
           dangerouslySetInnerHTML={{ __html: html }}
         />
         <div
           ref={measurementRef}
-          className="document-theme document-content"
+          className={`${documentThemeClass} document-content`}
+          data-docmark-theme={theme.id}
           style={contentStyle}
         />
       </div>

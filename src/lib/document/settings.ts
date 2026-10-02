@@ -2,6 +2,7 @@ import {
   DOCUMENT_FONT_FAMILIES,
   type DocumentFontFamily,
 } from "@/lib/document/font-registry";
+import type { DocumentThemeId } from "@/lib/document/themes";
 
 export { DOCUMENT_FONT_FAMILIES, getDocumentFontStack } from "@/lib/document/font-registry";
 export type { DocumentFontFamily } from "@/lib/document/font-registry";
@@ -50,6 +51,7 @@ export type HeaderFooterSettings = {
 };
 
 export type DocumentSettings = {
+  theme: DocumentThemeId;
   pageSize: PageSize;
   orientation: PageOrientation;
   margins: PageMargins;
@@ -65,6 +67,7 @@ export type PageDimensions = {
 };
 
 export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
+  theme: "default",
   pageSize: "a4",
   orientation: "portrait",
   margins: { top: 20, right: 20, bottom: 20, left: 20 },

@@ -158,15 +158,22 @@ The index uses the same measured pages in Preview and browser Print/PDF. Typogra
 
 Document typography is configurable with a font family, base size (9, 10, 11, 12, 14, or 16 pt), line height (1.2, 1.4, 1.5, 1.6, 1.75, 1.8, or 2), and paragraph alignment (left, center, right, or justify). System fonts (Arial, Helvetica, Georgia, Times New Roman, and Courier New) use local browser/system fallbacks. Montserrat is bundled with Docmark as local WOFF2 assets and is loaded from the same origin; runtime Google Fonts, CDN, and other external font requests are not used. Bundled fonts are verified with the browser Font Loading API before pagination is considered stable, keeping measurement, Preview, and Print/PDF on the same metrics. If Montserrat cannot load, all three use Arial and pagination/Export PDF remain available. Headings, lists, tables, and code retain their structural alignment; code stays monospace. Settings persist in IndexedDB and are written under `docmark.typography` only while portable metadata is enabled.
 
+## Document themes
+
+Choose **Default**, **Technical**, **Academic**, or **Minimal** for a document's structural styling. Themes adjust headings, spacing, lists, tables, blockquotes, code, links, horizontal rules, the Table of Contents, and Mermaid containers. `default` is used for new documents and for older IndexedDB records without a theme; it retains Docmark's previous document styling. Themes do not change Markdown or page settings.
+
+Theme and Typography are separate controls. The theme does not silently change font family, base size, line height, or paragraph alignment. For example, Academic can use Georgia, while Technical can use Montserrat. These settings persist together in local IndexedDB; duplication copies the selected theme. With **Include Docmark settings in Markdown** enabled, the stable theme ID is read from and written to `docmark.theme` in Front Matter v1. With that option off, the theme remains local and is omitted from the Markdown file. Unknown theme IDs safely display as Default. TOC, Mermaid, measurement, Preview, and browser Print/Save as PDF use the same document-scoped styles; theme changes rerun layout measurement and pagination but do not rerender the Mermaid SVG. All themes use a light, print-friendly page and remain independent of the application light/dark appearance.
+
 ```yaml
 ---
 docmark:
   version: 1
+  theme: technical
   typography:
     fontFamily: Montserrat
     fontSize: 11
-    lineHeight: 1.5
-    alignment: justify
+    lineHeight: 1.75
+    alignment: left
 ---
 ```
 

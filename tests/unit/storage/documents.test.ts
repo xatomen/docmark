@@ -67,6 +67,7 @@ describe("IndexedDB document persistence", () => {
       "# Source\n\n:::pagebreak\n:::",
       "2024-03-01T00:00:00.000Z",
       {
+        theme: "technical",
         pageSize: "letter",
         orientation: "landscape",
         margins: { top: 17, right: 19, bottom: 21, left: 23 },

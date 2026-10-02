@@ -15,6 +15,22 @@ function asDocument(source: string) {
 }
 
 describe("portable Markdown front matter", () => {
+  it("parses and serializes stable document theme IDs in v1 metadata", () => {
+    const source = "---\ndocmark:\n  version: 1\n  theme: technical\n---\n# Theme";
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.theme).toBe("technical");
+    expect(parsed.portableMarkdown.status).toBe("valid");
+
+    const document = asDocument(source);
+    document.settings.theme = "academic";
+    expect(serializeMarkdownFile(document)).toContain("theme: academic");
+
+    const unknown = parseMarkdownFile(source.replace("technical", "custom-theme"));
+    expect(unknown.settings.theme).toBe("default");
+    expect(unknown.portableMarkdown.status).toBe("invalid-settings");
+    expect(serializeMarkdownFile(asDocument(source.replace("technical", "custom-theme")))).toBe(source.replace("technical", "custom-theme"));
+  });
+
   it("leaves plain Markdown body and default settings unchanged", () => {
     const source = "# Hello\r\n\r\nNormal Markdown.\r\n";
     const parsed = parseMarkdownFile(source);
@@ -82,6 +98,7 @@ describe("portable Markdown front matter", () => {
     ].join("\n"));
 
     expect(parsed.settings).toEqual({
+      theme: "default",
       pageSize: "letter",
       orientation: "portrait",
       margins: { top: 15, right: 20, bottom: 20, left: 20 },
@@ -323,6 +340,7 @@ describe("portable Markdown front matter", () => {
     const document = asDocument(source);
     document.portableMarkdown.includeDocmarkSettings = true;
     document.settings = {
+      theme: "default",
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 15, right: 20, bottom: 15, left: 20 },

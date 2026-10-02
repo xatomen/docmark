@@ -69,7 +69,7 @@ DocumentSettings ─────────────────────
                                                                                  └→ Print Layout → Browser Print Engine → Save as PDF
 ```
 
-`DocumentSettings` includes optional page-number settings (`enabled`, bottom position, and positive-integer `startAt`), Header/Footer text and alignment, and document typography (`fontFamily`, `fontSize`, `lineHeight`, `alignment`). They follow the same React and IndexedDB path as physical page settings. Page decorations and typography are serialized into Front Matter only while portable metadata is enabled.
+`DocumentSettings` includes the stable document theme ID (`default`, `technical`, `academic`, or `minimal`), physical page settings, optional page numbers, Header/Footer text and alignment, and document typography (`fontFamily`, `fontSize`, `lineHeight`, `alignment`). They follow the same React and IndexedDB path. Legacy records without `theme` normalize to `default`; the existing database version and object stores remain unchanged. Theme, page decorations, and typography are serialized into Front Matter v1 only while portable metadata is enabled.
 
 ## Markdown data flow
 
@@ -185,9 +185,9 @@ Front Matter is an optional file representation. `DocmarkDocument.markdown` rema
                   .md file
 ```
 
-The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), four `margins` values in millimeters, and optional `pageNumbers` settings to `DocumentSettings`. Page-number fields are validated independently; missing or invalid fields use defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
+The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.theme` (a registry ID), `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), four `margins` values in millimeters, and optional `pageNumbers` settings to `DocumentSettings`. Page-number fields are validated independently; missing or invalid fields use defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
 
-The **Include Docmark settings in Markdown** preference defaults off for new and ordinary Markdown files, and on for files with supported v1 metadata. With it off, ordinary Markdown remains a body-only file; external Front Matter is retained, and turning it off on a portable document removes only the root `docmark` key. With it on, the serializer writes version 1 and the current page settings. The same serializer drives Save, Save As, fallback downloads, and file dirty-state comparison.
+The **Include Docmark settings in Markdown** preference defaults off for new and ordinary Markdown files, and on for files with supported v1 metadata. With it off, ordinary Markdown remains a body-only file; external Front Matter is retained, and turning it off on a portable document removes only the root `docmark` key. With it on, the serializer writes version 1 and the current theme and document settings. The same serializer drives Save, Save As, fallback downloads, and file dirty-state comparison.
 
 Malformed YAML, a malformed Docmark namespace, missing versions, and versions newer than 1 do not block opening the body. Docmark uses local/default page settings, shows a small warning beside the settings, disables metadata rewriting, and preserves the original Front Matter bytes. Future versions are never interpreted or downgraded. A supported v1 block is left byte-for-byte intact until its settings change; then the YAML document API updates known fields while preserving comments and other values where possible.
 
@@ -234,6 +234,35 @@ Pagination          Preview
 ```
 
 Typography settings participate in pagination measurement. Font family, base size, line height, and paragraph alignment invalidate pagination; generation guards discard stale work after rapid changes. By contrast, PageDecorations do not participate in pagination measurement. System fonts use local/system stacks; the bundled Montserrat assets are served from the Docmark origin with no external font requests. Paragraphs (including blockquote paragraphs) receive body alignment, while headings, lists, table cells, and code stay left-aligned. Code keeps a monospace stack. Decorations inherit the selected family but retain their own alignment and compact 9 pt number size.
+
+### Document Theme Registry
+
+`lib/document/themes` is the internal registry for stable theme IDs, labels/descriptions, and scoped CSS class names. Unknown IDs resolve to `default`; Front Matter validation uses the same registry. Themes own structural styles, while Typography remains the only authority for font family, base font size, line height, and paragraph alignment. A theme never auto-applies a font recommendation.
+
+The registry class and `data-docmark-theme` attribute are applied to the shared `.document-theme` roots in source measurement nodes and visible page content. CSS custom properties in `styles/document/base.css` carry structural colors, spacing, borders, and padding; scoped theme selectors provide only the differences. Default token values preserve the pre-M6.7 document rules. The physical page shell and `PageDecorations` do not receive theme classes, so white paper, margins, page numbers, headers, and footers remain independent.
+
+```text
+DocumentSettings
+      │
+      ├── Page Settings
+      ├── Typography
+      ├── Page Decorations
+      └── Theme ID
+             ↓
+       Theme Registry
+             ↓
+       Shared scoped tokens / styles
+             ↓
+       Resolved document roots
+             ↓
+       Derived content readiness
+             ↓
+       Measurement → Pagination → TOC stabilization
+             ↓
+       Preview / Print
+```
+
+Theme participates in the existing pagination invalidation and stale-generation guards because spacing and table/code dimensions can change. The selected theme applies on the immediate React render; export remains disabled until the new layout pass completes. Mermaid stays initialized with its fixed, approved neutral configuration. Theme changes style the Mermaid container through shared CSS tokens, so its SVG is not rerendered or recached. Markdown source cannot choose Mermaid configuration or inject CSS, and the existing sanitization boundary remains unchanged.
 
 ### Document Font Registry
 
@@ -335,7 +364,6 @@ Autosave race coverage uses Playwright's clock to advance the debounce determini
 
 These are planned and are not implemented yet:
 
-- Document themes
 - Markdown syntax extensions beyond GFM
 - Direct PDF generation and print options beyond the browser's native dialog
 - Mermaid diagrams and KaTeX math

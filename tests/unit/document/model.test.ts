@@ -22,6 +22,7 @@ describe("DocmarkDocument model", () => {
 
   it("duplicates content and settings with a new ID, timestamps, and title", () => {
     const source = createDocmarkDocument(":::pagebreak\n:::", {
+      theme: "technical",
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 17, right: 19, bottom: 21, left: 23 },
@@ -57,6 +58,7 @@ describe("DocmarkDocument model", () => {
     expect(duplicate.settings.footer).not.toBe(source.settings.footer);
     expect(duplicate.settings.typography).toEqual(source.settings.typography);
     expect(duplicate.settings.typography).not.toBe(source.settings.typography);
+    expect(duplicate.settings.theme).toBe("technical");
     expect(duplicate.portableMarkdown).toEqual(source.portableMarkdown);
     expect(duplicate.portableMarkdown).not.toBe(source.portableMarkdown);
     expect("fileHandle" in duplicate).toBe(false);
@@ -101,6 +103,17 @@ describe("DocmarkDocument model", () => {
       position: "bottom-center",
       startAt: 1,
     });
+  });
+
+  it("defaults missing and unknown stored themes to Default", () => {
+    const now = "2024-01-02T00:00:00.000Z";
+    const missing = normalizeStoredDocument({ id: "missing", title: "Old", markdown: "", createdAt: now, updatedAt: now });
+    const unknown = normalizeStoredDocument({
+      id: "unknown", title: "Unknown", markdown: "", createdAt: now, updatedAt: now,
+      settings: { theme: "custom" },
+    });
+    expect(missing?.settings.theme).toBe("default");
+    expect(unknown?.settings.theme).toBe("default");
   });
 
   it("defaults and validates decoration fields for older or malformed records", () => {

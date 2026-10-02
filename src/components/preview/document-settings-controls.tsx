@@ -20,6 +20,7 @@ import {
   type PageMargins,
 } from "@/lib/document/settings";
 import type { PortableMarkdownMetadata } from "@/lib/document/model";
+import { DOCUMENT_THEMES, isDocumentThemeId } from "@/lib/document/themes";
 
 type DocumentSettingsControlsProps = {
   settings: DocumentSettings;
@@ -145,6 +146,23 @@ export function DocumentSettingsControls({
         >
           <option value="portrait">Portrait</option>
           <option value="landscape">Landscape</option>
+        </select>
+      </label>
+
+      <label className="flex items-center gap-2 text-xs text-muted">
+        Document theme
+        <select
+          aria-label="Document theme"
+          value={settings.theme}
+          onChange={(event) => {
+            if (!isDocumentThemeId(event.target.value)) return;
+            onChange({ ...settings, theme: event.target.value });
+          }}
+          className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {DOCUMENT_THEMES.map((theme) => (
+            <option value={theme.id} key={theme.id}>{theme.label}</option>
+          ))}
         </select>
       </label>
 
