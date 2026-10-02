@@ -111,6 +111,17 @@
 }
 
 @layer components {
+  @media screen {
+    .docmark-app .workspace-surface {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--docmark-radius-surface);
+      background: var(--surface);
+      box-shadow: var(--surface-shadow);
+    }
+  }
+
   /* Keep this application chrome override away from user-authored document HTML. */
   .docmark-app .app-header .button {
     border-radius: var(--docmark-radius-control);
