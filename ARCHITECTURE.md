@@ -29,13 +29,13 @@ CodeMirror belongs to the browser-side input layer. It edits a Markdown string a
 
 ## Local document persistence
 
-`lib/document/model` defines the stored document shape: stable ID, title, Markdown, page settings, and creation/update timestamps. `lib/storage` uses the browser's existing versioned `docmark` database and `documents` object store, plus metadata for the last active document ID. M5.2 requires no schema migration, so M5.1 records remain compatible. On first launch it creates the starter document; on later launches it restores the last active valid document, falling back to the most recently updated valid document.
+`lib/document/model` defines the stored document shape: stable ID, title, Markdown body, page settings, portable Markdown preference and preserved Front Matter, and creation/update timestamps. Legacy M5.1–M5.4 records normalize the new portable metadata to off with no Front Matter. `lib/storage` keeps using the existing versioned `docmark` database and object stores; no database reset or schema migration is needed.
 
 The editor workspace holds one active document and a sorted list of lightweight document summaries. It supports create, switch, rename, duplicate, and delete. New documents start empty with default settings; duplicates copy the selected document's current Markdown and settings and get a new ID and timestamps. Deleting asks for confirmation, selects the most recently updated remaining document, or atomically creates a clean replacement when deleting the last document.
 
 Autosaves are debounced and serialized through one operation queue. Each save carries the immutable document snapshot and ID that originated it; ordinary saves do not change the last-active pointer. Switching flushes the pending save before loading and activating the target. Generation checks prevent stale asynchronous loads from replacing a later selection. Deletes invalidate a pending debounce, then run after earlier writes so an old save cannot recreate the deleted record. Rename writes a full latest snapshot, preserving concurrent Markdown/settings changes.
 
-Only source Markdown and document settings are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. CodeMirror is keyed by document ID, so switching documents creates a fresh editor history. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a filesystem backup or cross-device sync.
+The Markdown body, document settings, portable preference and raw Front Matter source are stored; sanitized HTML and paginated `Page[]` are derived again in the browser. CodeMirror is keyed by document ID, so switching documents creates a fresh editor history. If IndexedDB is unavailable or a write fails, the editor remains usable for the current session and shows a save status. The data stays in this browser's site storage and is not a filesystem backup or cross-device sync.
 
 ```text
                          IndexedDB
@@ -97,7 +97,7 @@ Measurement Layer → Pagination Engine → Page[]
 
 ## Local Markdown files
 
-IndexedDB remains the workspace store and source of truth for the active `DocmarkDocument`. A local `.md` file is an explicit import/export boundary: Open reads its text in the browser, creates a new document with default settings, and persists/activates it through the existing workspace lifecycle. Open never replaces a document by filename. The active Markdown then follows the normal CodeMirror, Markdown pipeline, sanitization, preview, pagination, and IndexedDB autosave paths.
+IndexedDB remains the workspace store and source of truth for the active `DocmarkDocument`. A local `.md` file is an explicit import/export boundary: Open reads its text in the browser, splits an optional YAML Front Matter block from the Markdown body, restores supported Docmark settings, and persists/activates a new document through the existing workspace lifecycle. Open never replaces a document by filename. CodeMirror receives only the body, which follows the normal Markdown pipeline, sanitization, preview, pagination, and IndexedDB autosave paths.
 
 ```text
                      ┌────────────────────┐
@@ -126,9 +126,56 @@ IndexedDB remains the workspace store and source of truth for the active `Docmar
 
 Open and Save use feature detection for `window.showOpenFilePicker` and `window.showSaveFilePicker`; no browser or user-agent detection is used. When available, the native picker gives the user a `FileSystemFileHandle`. Otherwise Open uses a resettable Markdown file input, and Save/Save As downloads a UTF-8 Markdown Blob and revokes its object URL. The fallback cannot overwrite or remember a destination, so each Save downloads a new file. Files larger than 100 MB are rejected to avoid excessive browser memory use. The native picker and fallback both operate only after user action and process file contents locally.
 
-File handles and the Markdown snapshot last written to each handle live in runtime maps keyed by the owning document ID. They are not part of `DocmarkDocument` and are not serialized to IndexedDB. Switching documents preserves those per-ID runtime associations; reload restores the IndexedDB document but loses its file handle, so Save then opens Save As. Open associates its selected handle after the new document is persisted, and Save As associates a handle only with the document ID whose Markdown snapshot it captured. Save completion compares that snapshot with current Markdown, so typing during a write remains visibly `File modified`. Save does not block CodeMirror or require filesystem writes during autosave.
+File handles and the serialized file snapshot last written to each handle live in runtime maps keyed by the owning document ID. Handles are not part of `DocmarkDocument` and are not serialized to IndexedDB. Switching documents preserves those per-ID runtime associations; reload restores the IndexedDB document but loses its file handle, so Save then opens Save As. Open associates its selected handle after the new document is persisted, and Save As associates a handle only with the document ID whose complete Markdown-file snapshot it captured. Save completion compares that serialized snapshot with current body/settings/portable metadata, so edits during a write remain visibly `File modified` when the file representation changed. Local page settings do not dirty an ordinary Markdown file while portability is off.
 
-Docmark title and filename are independent. Rename preserves the association without renaming the file. Duplicate copies Markdown and page settings but gets no association. Delete removes only the workspace document and its runtime association; it never deletes the physical file. Picker cancellation leaves the active document and existing association unchanged. Read/write failures are shown separately from the IndexedDB save status. Settings, timestamps, HTML, and pagination are not written to `.md`; only the current Markdown source is saved, including existing page-break directives.
+## Portable Markdown Front Matter
+
+Front Matter is an optional file representation. `DocmarkDocument.markdown` remains only the editable body; its portable metadata value stores the exact original Front Matter block, whether the user includes Docmark settings, and a validation status. This is browser workspace data and remains compatible with IndexedDB records written before M6.1.
+
+```text
+                Markdown File
+                     │
+                     ▼
+          Front Matter Parser
+          ┌──────────┴──────────┐
+          │                     │
+          ▼                     ▼
+    Markdown Body          Front Matter
+                                │
+                         ┌──────┴──────┐
+                         │             │
+                         ▼             ▼
+                    External       docmark
+                    Metadata       Metadata
+                                      │
+                                      ▼
+                              DocumentSettings
+
+                DocmarkDocument
+                     │
+                     ▼
+                  Editor
+                     │
+                     ▼
+            Markdown Serializer
+          ┌──────────┴──────────┐
+          │                     │
+     Markdown Body        Front Matter
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+                  .md file
+```
+
+The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), and four `margins` values in millimeters to `DocumentSettings`. Missing fields use current defaults. Invalid individual values fall back independently; impossible opposing margin pairs fall back to defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
+
+The **Include Docmark settings in Markdown** preference defaults off for new and ordinary Markdown files, and on for files with supported v1 metadata. With it off, ordinary Markdown remains a body-only file; external Front Matter is retained, and turning it off on a portable document removes only the root `docmark` key. With it on, the serializer writes version 1 and the current page settings. The same serializer drives Save, Save As, fallback downloads, and file dirty-state comparison.
+
+Malformed YAML, a malformed Docmark namespace, missing versions, and versions newer than 1 do not block opening the body. Docmark uses local/default page settings, shows a small warning beside the settings, disables metadata rewriting, and preserves the original Front Matter bytes. Future versions are never interpreted or downgraded. A supported v1 block is left byte-for-byte intact until its settings change; then the YAML document API updates known fields while preserving comments and other values where possible.
+
+The `.md` file contains only the body and optional Front Matter. Document IDs, workspace titles, timestamps, filesystem handles, autosave state, sanitized HTML and pagination results remain outside the file. The workspace title, an external Front Matter `title`, and the filesystem filename are independent.
+
+Docmark title and filename are independent. Rename preserves the association without renaming the file. Duplicate copies Markdown, settings and portable Front Matter state but gets no association. Delete removes only the workspace document and its runtime association; it never deletes the physical file. Picker cancellation leaves the active document and existing association unchanged. Read/write failures are shown separately from the IndexedDB save status. IDs, timestamps, handles, save status, HTML, and pagination are not written to `.md`; the body and optional Front Matter are saved, including existing page-break directives.
 
 Imported files enter the same Markdown pipeline as editor content. The existing sanitization boundary remains in place, and Markdown is never executed or uploaded. File access is limited to files explicitly selected by the user; there is no backend, upload, cloud storage, filesystem watching, or external-change reload.
 

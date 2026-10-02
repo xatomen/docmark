@@ -27,6 +27,11 @@ import {
   writeMarkdownFile,
 } from "@/lib/files/markdown-files";
 import {
+  getPortableMarkdownWarning,
+  parseMarkdownFile,
+  serializeMarkdownFile,
+} from "@/lib/files/markdown-front-matter";
+import {
   AUTOSAVE_DELAY_MS,
   deleteDocument as deleteStoredDocument,
   getDocument,
@@ -71,14 +76,29 @@ type PendingSave = {
 
 type RuntimeFileAssociation = {
   handle: FileSystemFileHandle;
-  savedMarkdown: string;
+  savedSnapshot: string;
 };
 
 type FileUiStatus = {
   saving: boolean;
   message: string | null;
-  savedMarkdown: string | null;
+  savedSnapshot: string | null;
 };
+
+type MarkdownFileSnapshot = Pick<
+  DocmarkDocument,
+  "id" | "title" | "markdown" | "settings" | "portableMarkdown"
+>;
+
+function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSnapshot {
+  return {
+    id: document.id,
+    title: document.title,
+    markdown: document.markdown,
+    settings: { ...document.settings, margins: { ...document.settings.margins } },
+    portableMarkdown: { ...document.portableMarkdown },
+  };
+}
 
 function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean {
   return (
@@ -187,7 +207,7 @@ export function EditorWorkspace() {
   }, [clearAutosaveTimer, queueDocumentSave]);
 
   const updateDocument = useCallback((
-    change: Partial<Pick<DocmarkDocument, "title" | "markdown" | "settings">>,
+    change: Partial<Pick<DocmarkDocument, "title" | "markdown" | "settings" | "portableMarkdown">>,
     saveImmediately = false,
   ) => {
     const current = documentRef.current;
@@ -196,6 +216,7 @@ export function EditorWorkspace() {
     const next: DocmarkDocument = {
       ...current,
       ...change,
+      portableMarkdown: change.portableMarkdown ?? current.portableMarkdown,
       updatedAt: new Date().toISOString(),
     };
     documentRef.current = next;
@@ -290,6 +311,19 @@ export function EditorWorkspace() {
     if (!current || sameSettings(current.settings, settings)) return;
     setPaginationReady(false);
     updateDocument({ settings });
+  }, [updateDocument]);
+
+  const updatePortableMetadata = useCallback((includeDocmarkSettings: boolean) => {
+    const current = documentRef.current;
+    if (
+      !current ||
+      (current.portableMarkdown.status !== "valid" &&
+        current.portableMarkdown.status !== "invalid-settings")
+    ) return;
+    if (current.portableMarkdown.includeDocmarkSettings === includeDocmarkSettings) return;
+    updateDocument({
+      portableMarkdown: { ...current.portableMarkdown, includeDocmarkSettings },
+    });
   }, [updateDocument]);
 
   const finishActivation = useCallback(async (document: DocmarkDocument) => {
@@ -501,12 +535,15 @@ export function EditorWorkspace() {
     void (async () => {
       let activationStarted = false;
       try {
-        const markdown = await readMarkdownFile(file);
+        const rawMarkdownFile = await readMarkdownFile(file);
+        const parsedMarkdownFile = parseMarkdownFile(rawMarkdownFile);
         const imported = createDocmarkDocument(
-          markdown,
-          DEFAULT_DOCUMENT_SETTINGS,
+          parsedMarkdownFile.markdown,
+          parsedMarkdownFile.settings,
           markdownTitleFromFilename(file.name),
         );
+        imported.portableMarkdown = parsedMarkdownFile.portableMarkdown;
+        const importedFileSnapshot = rawMarkdownFile;
         activationStarted = true;
         setIsWorkspaceTransitioning(true);
         setPersistenceStatus("loading");
@@ -515,14 +552,17 @@ export function EditorWorkspace() {
           await putDocument(imported, { activate: true });
           await finishActivation(imported);
           if (handle && !deletedDocumentIdsRef.current.has(imported.id)) {
-            fileAssociationsRef.current.set(imported.id, { handle, savedMarkdown: markdown });
+            fileAssociationsRef.current.set(imported.id, {
+              handle,
+              savedSnapshot: importedFileSnapshot,
+            });
           }
           setFileStatusById((previous) => {
             const next = new Map(previous);
             next.set(imported.id, {
               saving: false,
               message: null,
-              savedMarkdown: handle ? markdown : null,
+              savedSnapshot: handle ? importedFileSnapshot : null,
             });
             return next;
           });
@@ -549,8 +589,9 @@ export function EditorWorkspace() {
     })();
   }, [beginManagement, endManagement, enqueueOperation, finishActivation, flushPendingSave]);
 
-  const saveDocumentAs = useCallback((snapshot: Pick<DocmarkDocument, "id" | "title" | "markdown">) => {
+  const saveDocumentAs = useCallback((snapshot: MarkdownFileSnapshot) => {
     const filename = suggestedMarkdownFilename(snapshot.title);
+    const fileContents = serializeMarkdownFile(snapshot);
     setFileOperationBusy(true);
     setFileOperationNotice(null);
     setFileStatusById((previous) => {
@@ -558,12 +599,12 @@ export function EditorWorkspace() {
       next.set(snapshot.id, {
         saving: true,
         message: null,
-        savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+        savedSnapshot: next.get(snapshot.id)?.savedSnapshot ?? null,
       });
       return next;
     });
 
-    void saveMarkdownAsFile(filename, snapshot.markdown)
+    void saveMarkdownAsFile(filename, fileContents)
       .then((result) => {
         if (deletedDocumentIdsRef.current.has(snapshot.id)) {
           setFileStatusById((previous) => {
@@ -576,7 +617,7 @@ export function EditorWorkspace() {
         if (result.kind === "saved") {
           fileAssociationsRef.current.set(snapshot.id, {
             handle: result.handle,
-            savedMarkdown: snapshot.markdown,
+            savedSnapshot: fileContents,
           });
         } else {
           fileAssociationsRef.current.delete(snapshot.id);
@@ -586,7 +627,7 @@ export function EditorWorkspace() {
           next.set(snapshot.id, {
             saving: false,
             message: result.kind === "downloaded" ? `Downloaded ${filename}` : null,
-            savedMarkdown: result.kind === "saved" ? snapshot.markdown : null,
+            savedSnapshot: result.kind === "saved" ? fileContents : null,
           });
           return next;
         });
@@ -601,7 +642,7 @@ export function EditorWorkspace() {
             else next.set(snapshot.id, {
                 saving: false,
                 message: "File save failed",
-                savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+                savedSnapshot: next.get(snapshot.id)?.savedSnapshot ?? null,
               });
             return next;
           });
@@ -621,7 +662,8 @@ export function EditorWorkspace() {
   const saveMarkdown = useCallback(() => {
     const current = documentRef.current;
     if (!current || fileOperationBusy) return;
-    const snapshot = { id: current.id, title: current.title, markdown: current.markdown };
+    const snapshot = captureMarkdownFileSnapshot(current);
+    const fileContents = serializeMarkdownFile(snapshot);
     const association = fileAssociationsRef.current.get(snapshot.id);
     if (!association) {
       saveDocumentAs(snapshot);
@@ -635,11 +677,11 @@ export function EditorWorkspace() {
       next.set(snapshot.id, {
         saving: true,
         message: null,
-        savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+        savedSnapshot: next.get(snapshot.id)?.savedSnapshot ?? null,
       });
       return next;
     });
-    void writeMarkdownFile(association.handle, snapshot.markdown)
+    void writeMarkdownFile(association.handle, fileContents)
       .then(() => {
         const currentAssociation = fileAssociationsRef.current.get(snapshot.id);
         if (
@@ -648,7 +690,7 @@ export function EditorWorkspace() {
         ) {
           fileAssociationsRef.current.set(snapshot.id, {
             ...currentAssociation,
-            savedMarkdown: snapshot.markdown,
+            savedSnapshot: fileContents,
           });
         }
         setFileStatusById((previous) => {
@@ -657,7 +699,7 @@ export function EditorWorkspace() {
           else next.set(snapshot.id, {
               saving: false,
               message: null,
-              savedMarkdown: snapshot.markdown,
+              savedSnapshot: fileContents,
             });
           return next;
         });
@@ -671,7 +713,7 @@ export function EditorWorkspace() {
           else next.set(snapshot.id, {
               saving: false,
               message: "File save failed",
-              savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+              savedSnapshot: next.get(snapshot.id)?.savedSnapshot ?? null,
             });
           return next;
         });
@@ -682,7 +724,7 @@ export function EditorWorkspace() {
   const saveMarkdownAs = useCallback(() => {
     const current = documentRef.current;
     if (!current || fileOperationBusy) return;
-    saveDocumentAs({ id: current.id, title: current.title, markdown: current.markdown });
+    saveDocumentAs(captureMarkdownFileSnapshot(current));
   }, [fileOperationBusy, saveDocumentAs]);
 
   function printDocument() {
@@ -703,12 +745,18 @@ export function EditorWorkspace() {
   const activeFileStatus = currentDocument
     ? fileStatusById.get(currentDocument.id)
     : undefined;
+  const serializedCurrentFile = currentDocument
+    ? serializeMarkdownFile(currentDocument)
+    : null;
+  const metadataForWarning = serializedCurrentFile === null
+    ? currentDocument?.portableMarkdown ?? null
+    : parseMarkdownFile(serializedCurrentFile).portableMarkdown;
   const fileStatusMessage = fileOperationNotice ?? (
     activeFileStatus?.saving
       ? "Saving file…"
       : activeFileStatus?.message ?? (
-        activeFileStatus?.savedMarkdown !== null && activeFileStatus !== undefined
-          ? activeFileStatus.savedMarkdown === currentDocument?.markdown
+        activeFileStatus?.savedSnapshot !== null && activeFileStatus !== undefined
+          ? activeFileStatus.savedSnapshot === serializedCurrentFile
             ? "File saved"
             : "File modified"
           : null
@@ -802,7 +850,16 @@ export function EditorWorkspace() {
               <h2 id="preview-heading" className="text-xs font-medium uppercase tracking-wider text-muted">Document preview</h2>
               <span className="font-mono text-xs text-muted">Live</span>
             </div>
-            <DocumentSettingsControls key={`settings-${documentRecord.id}`} settings={documentRecord.settings} onChange={updateDocumentSettings} />
+            <DocumentSettingsControls
+              key={`settings-${documentRecord.id}`}
+              settings={documentRecord.settings}
+              onChange={updateDocumentSettings}
+              portableMarkdown={documentRecord.portableMarkdown}
+              onPortableMetadataChange={updatePortableMetadata}
+              metadataWarning={metadataForWarning
+                ? getPortableMarkdownWarning(metadataForWarning)
+                : null}
+            />
             <DocumentPreview
               key={`preview-${documentRecord.id}`}
               markdown={documentRecord.markdown}

@@ -6,7 +6,7 @@ Docmark is a local-first web application for creating polished documents from Ma
 
 Document content stays in the user's browser during the editing and print workflow. Markdown is parsed, transformed, sanitized, paginated, and sent to the browser's native print engine locally. `Export PDF` opens the browser print dialog; the user can select **Save as PDF** there. Docmark does not generate or upload a PDF through a server.
 
-`Open Markdown…` reads `.md` and `.markdown` files locally after the user selects them. Files larger than 100 MB are rejected to avoid excessive browser memory use. `Save` and `Save As…` write only the current Markdown source to a selected local file when the browser supports its native file picker APIs. Other browsers use a file input to open and a local download to save. There is no Markdown upload or remote storage. Native file associations last only for the current page session; after a reload, use `Save As…` again.
+`Open Markdown…` reads `.md` and `.markdown` files locally after the user selects them. Files larger than 100 MB are rejected to avoid excessive browser memory use. Markdown files may include optional YAML Front Matter. Docmark reads and writes its page settings only under the `docmark` namespace and preserves other metadata. The **Include Docmark settings in Markdown** option is off for ordinary Markdown files; when enabled, page settings travel with the file. `Save` and `Save As…` write the Markdown body and applicable Front Matter to a selected local file when the browser supports its native file picker APIs. Other browsers use a file input to open and a local download to save. There is no Markdown upload or remote storage. Native file associations last only for the current page session; after a reload, use `Save As…` again.
 
 ## Stack
 
@@ -19,6 +19,8 @@ Document content stays in the user's browser during the editing and print workfl
 No PDF-generation or local-storage libraries are used. Documents are stored in the browser's native IndexedDB; browser printing is provided by the native print engine.
 
 The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`.
+
+Markdown file Front Matter uses the `yaml` document API to validate Docmark metadata and update its namespace while preserving external fields and YAML comments.
 
 The editor uses CodeMirror 6 packages: `@codemirror/state`, `@codemirror/view`, `@codemirror/lang-markdown`, `@codemirror/language`, and `@codemirror/commands`.
 
@@ -84,11 +86,35 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Print-safe wrapping keeps long code lines, links, and technical identifiers within the page width. Tables stay inside the content area; wrapping increases document height and may increase the page count. Document pages intentionally avoid horizontal scrolling.
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
+- Optional YAML Front Matter carries versioned page settings under `docmark.version: 1`. External Front Matter remains attached to the document and is preserved when the body is edited or saved. Existing Markdown without Front Matter remains valid and is not given Docmark metadata unless the user enables **Include Docmark settings in Markdown**.
 
-The editor supports multiple local documents: create, switch, rename, duplicate, and delete. Markdown and page settings autosave to IndexedDB, and Docmark restores the last active document when it opens. `Save` is a separate, explicit write or download of Markdown; autosave never writes to the filesystem. Renaming or deleting a Docmark document does not rename or delete an external file, and duplicates do not inherit file associations. IndexedDB is browser site storage, not a filesystem backup or sync service; clearing site data can remove documents, and other browsers or devices do not share them.
+The editor supports multiple local documents: create, switch, rename, duplicate, and delete. Markdown, page settings, the portable metadata preference, and preserved Front Matter autosave to IndexedDB, and Docmark restores the last active document when it opens. `Save` is a separate, explicit write or download of the Markdown file; autosave never writes to the filesystem. Renaming or deleting a Docmark document does not rename or delete an external file, and duplicates do not inherit file associations. IndexedDB is browser site storage, not a filesystem backup or sync service; clearing site data can remove documents, and other browsers or devices do not share them.
+
+## Portable Markdown settings
+
+Traditional Markdown without Front Matter remains fully supported. Portable page settings are optional and use the versioned `docmark` namespace; margin values are millimeters.
+
+```yaml
+---
+docmark:
+  version: 1
+  page:
+    size: A4
+    orientation: portrait
+    margins:
+      top: 20
+      right: 20
+      bottom: 20
+      left: 20
+---
+
+# Markdown body
+```
+
+The **Include Docmark settings in Markdown** option is off for new and ordinary Markdown documents. It starts on when a file already has supported Docmark metadata. Docmark preserves unrelated Front Matter, while the editor shows and edits only the Markdown body. The complete workspace state remains in IndexedDB; the file carries only the optional external metadata and portable page settings. Malformed Front Matter or an unsupported Docmark version is preserved and shown with a non-blocking warning; Docmark does not rewrite that metadata.
 
 ## Initial roadmap
 
 1. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.
+Planned capabilities include Mermaid, KaTeX, table of contents, and PWA/offline support. They are not implemented yet.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createDocmarkDocument,
+  createDefaultPortableMarkdownMetadata,
   duplicateDocmarkDocument,
   normalizeStoredDocument,
 } from "@/lib/document/model";
@@ -27,6 +28,11 @@ describe("DocmarkDocument model", () => {
     }, "Quarterly report");
     source.createdAt = "2000-01-01T00:00:00.000Z";
     source.updatedAt = "2000-01-02T00:00:00.000Z";
+    source.portableMarkdown = {
+      rawFrontMatter: "---\ndocmark:\n  version: 1\n---\n",
+      includeDocmarkSettings: true,
+      status: "valid",
+    };
     const duplicate = duplicateDocmarkDocument(source);
 
     expect(duplicate).toMatchObject({
@@ -39,6 +45,8 @@ describe("DocmarkDocument model", () => {
     expect(duplicate.updatedAt).toBe(duplicate.createdAt);
     expect(duplicate.settings).not.toBe(source.settings);
     expect(duplicate.settings.margins).not.toBe(source.settings.margins);
+    expect(duplicate.portableMarkdown).toEqual(source.portableMarkdown);
+    expect(duplicate.portableMarkdown).not.toBe(source.portableMarkdown);
     expect("fileHandle" in duplicate).toBe(false);
   });
 
@@ -60,5 +68,6 @@ describe("DocmarkDocument model", () => {
       settings: DEFAULT_DOCUMENT_SETTINGS,
     });
     expect(normalized && "fileHandle" in normalized).toBe(false);
+    expect(normalized?.portableMarkdown).toEqual(createDefaultPortableMarkdownMetadata());
   });
 });

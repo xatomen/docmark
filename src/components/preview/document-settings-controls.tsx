@@ -8,10 +8,14 @@ import {
   type DocumentSettings,
   type PageMargins,
 } from "@/lib/document/settings";
+import type { PortableMarkdownMetadata } from "@/lib/document/model";
 
 type DocumentSettingsControlsProps = {
   settings: DocumentSettings;
   onChange: (settings: DocumentSettings) => void;
+  portableMarkdown: PortableMarkdownMetadata;
+  onPortableMetadataChange: (include: boolean) => void;
+  metadataWarning: string | null;
 };
 
 const MARGIN_FIELDS: { key: keyof PageMargins; label: string }[] = [
@@ -24,6 +28,9 @@ const MARGIN_FIELDS: { key: keyof PageMargins; label: string }[] = [
 export function DocumentSettingsControls({
   settings,
   onChange,
+  portableMarkdown,
+  onPortableMetadataChange,
+  metadataWarning,
 }: DocumentSettingsControlsProps) {
   const [marginDrafts, setMarginDrafts] = useState(() =>
     Object.fromEntries(
@@ -129,6 +136,23 @@ export function DocumentSettingsControls({
           <option value="landscape">Landscape</option>
         </select>
       </label>
+
+      <label className="flex items-center gap-2 text-xs text-muted">
+        <input
+          type="checkbox"
+          aria-label="Include Docmark settings in Markdown"
+          checked={portableMarkdown.includeDocmarkSettings}
+          disabled={portableMarkdown.status !== "valid" && portableMarkdown.status !== "invalid-settings"}
+          onChange={(event) => onPortableMetadataChange(event.target.checked)}
+          className="accent-accent"
+        />
+        Include Docmark settings in Markdown
+      </label>
+      {metadataWarning && (
+        <p role="status" className="basis-full text-xs text-amber-700 dark:text-amber-300">
+          {metadataWarning}
+        </p>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   createDocmarkDocument,
+  createDefaultPortableMarkdownMetadata,
   type DocmarkDocument,
 } from "@/lib/document/model";
 import { DEFAULT_DOCUMENT_SETTINGS } from "@/lib/document/settings";
@@ -34,6 +35,7 @@ function fixture(
     title,
     markdown,
     settings,
+    portableMarkdown: createDefaultPortableMarkdownMetadata(),
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt,
   };
@@ -79,6 +81,19 @@ describe("IndexedDB document persistence", () => {
       title: document.title,
       updatedAt: document.updatedAt,
     }]);
+  });
+
+  it("persists portable metadata and the source front matter across reloads", async () => {
+    const document = fixture("portable", "Portable", "# Body", "2024-03-01T00:00:00.000Z");
+    document.portableMarkdown = {
+      rawFrontMatter: "---\ntitle: External\n---\n",
+      includeDocmarkSettings: true,
+      status: "valid",
+    };
+
+    await putDocument(document);
+
+    await expect(getDocument(document.id)).resolves.toEqual(document);
   });
 
   it("lists documents by updatedAt descending", async () => {

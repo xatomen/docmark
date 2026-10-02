@@ -11,11 +11,35 @@ import {
 
 export const DEFAULT_DOCUMENT_TITLE = "Untitled document";
 
+export type PortableMarkdownStatus =
+  | "valid"
+  | "invalid-settings"
+  | "malformed"
+  | "invalid-docmark"
+  | "missing-version"
+  | "unsupported-version";
+
+export type PortableMarkdownMetadata = {
+  /** Exact original front matter block, including delimiters and line endings. */
+  rawFrontMatter: string | null;
+  includeDocmarkSettings: boolean;
+  status: PortableMarkdownStatus;
+};
+
+export function createDefaultPortableMarkdownMetadata(): PortableMarkdownMetadata {
+  return {
+    rawFrontMatter: null,
+    includeDocmarkSettings: false,
+    status: "valid",
+  };
+}
+
 export type DocmarkDocument = {
   id: string;
   title: string;
   markdown: string;
   settings: DocumentSettings;
+  portableMarkdown: PortableMarkdownMetadata;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,6 +78,25 @@ function copySettings(settings: DocumentSettings): DocumentSettings {
     pageSize: settings.pageSize,
     orientation: settings.orientation,
     margins: { ...settings.margins },
+  };
+}
+
+function normalizePortableMarkdown(value: unknown): PortableMarkdownMetadata {
+  if (!isRecord(value)) return createDefaultPortableMarkdownMetadata();
+  const status = value.status;
+  const validStatus: PortableMarkdownStatus =
+    status === "malformed" ||
+    status === "invalid-settings" ||
+    status === "invalid-docmark" ||
+    status === "missing-version" ||
+    status === "unsupported-version"
+      ? status
+      : "valid";
+
+  return {
+    rawFrontMatter: typeof value.rawFrontMatter === "string" ? value.rawFrontMatter : null,
+    includeDocmarkSettings: value.includeDocmarkSettings === true,
+    status: validStatus,
   };
 }
 
@@ -114,6 +157,7 @@ export function createDocmarkDocument(
     title,
     markdown,
     settings: copySettings(settings),
+    portableMarkdown: createDefaultPortableMarkdownMetadata(),
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -121,13 +165,15 @@ export function createDocmarkDocument(
 
 /** Duplicate only workspace data; filesystem handles remain runtime-only. */
 export function duplicateDocmarkDocument(
-  source: Pick<DocmarkDocument, "title" | "markdown" | "settings">,
+  source: Pick<DocmarkDocument, "title" | "markdown" | "settings" | "portableMarkdown">,
 ): DocmarkDocument {
-  return createDocmarkDocument(
+  const duplicate = createDocmarkDocument(
     source.markdown,
     source.settings,
     `${source.title} copy`,
   );
+  duplicate.portableMarkdown = { ...source.portableMarkdown };
+  return duplicate;
 }
 
 /** Validate and normalize an IndexedDB record without discarding its Markdown. */
@@ -155,6 +201,7 @@ export function normalizeStoredDocument(
     title: value.title,
     markdown: value.markdown,
     settings: normalizeSettings(value.settings),
+    portableMarkdown: normalizePortableMarkdown(value.portableMarkdown),
     createdAt,
     updatedAt,
   };
