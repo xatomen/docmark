@@ -6,6 +6,8 @@ Docmark is a local-first web application for creating polished documents from Ma
 
 Document content stays in the user's browser during the editing and print workflow. Markdown is parsed, transformed, sanitized, paginated, and sent to the browser's native print engine locally. `Export PDF` opens the browser print dialog; the user can select **Save as PDF** there. Docmark does not generate or upload a PDF through a server.
 
+`Open Markdown…` reads `.md` and `.markdown` files locally after the user selects them. Files larger than 100 MB are rejected to avoid excessive browser memory use. `Save` and `Save As…` write only the current Markdown source to a selected local file when the browser supports its native file picker APIs. Other browsers use a file input to open and a local download to save. There is no Markdown upload or remote storage. Native file associations last only for the current page session; after a reload, use `Save As…` again.
+
 ## Stack
 
 - Next.js 16.3.8 with App Router
@@ -79,11 +81,10 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Browser-based print/export opens the native print dialog; choose **Save as PDF** there. Processing stays local and uses the already-paginated document pages, with A4 or Letter, Portrait or Landscape, and configurable margins.
 - Print CSS removes application controls and preview scaling, preserves Docmark's physical page dimensions, and avoids adding browser page margins on top of Docmark's margins. Browser headers and footers remain controlled by the browser's print dialog.
 
-The editor supports multiple local documents: create, switch, rename, duplicate, and delete. Markdown and page settings autosave to IndexedDB, and Docmark restores the last active document when it opens. IndexedDB is browser site storage, not a filesystem backup or sync service; clearing site data can remove documents, and other browsers or devices do not share them.
+The editor supports multiple local documents: create, switch, rename, duplicate, and delete. Markdown and page settings autosave to IndexedDB, and Docmark restores the last active document when it opens. `Save` is a separate, explicit write or download of Markdown; autosave never writes to the filesystem. Renaming or deleting a Docmark document does not rename or delete an external file, and duplicates do not inherit file associations. IndexedDB is browser site storage, not a filesystem backup or sync service; clearing site data can remove documents, and other browsers or devices do not share them.
 
 ## Initial roadmap
 
-1. Add local Markdown file open/save.
-2. Add optional advanced Markdown features and PWA/offline support.
+1. Add optional advanced Markdown features and PWA/offline support.
 
-Planned capabilities include local Markdown file open/save, Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.
+Planned capabilities include Mermaid, KaTeX, front matter, table of contents, and PWA/offline support. They are not implemented yet.

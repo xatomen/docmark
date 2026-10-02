@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
 import { DocumentSwitcher } from "@/components/editor/document-switcher";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { DocumentPreview } from "@/components/preview/document-preview";
@@ -16,6 +17,14 @@ import {
   DEFAULT_DOCUMENT_SETTINGS,
   type DocumentSettings,
 } from "@/lib/document/settings";
+import {
+  isPickerCancellation,
+  markdownTitleFromFilename,
+  readMarkdownFile,
+  saveMarkdownAs as saveMarkdownAsFile,
+  suggestedMarkdownFilename,
+  writeMarkdownFile,
+} from "@/lib/files/markdown-files";
 import {
   AUTOSAVE_DELAY_MS,
   deleteDocument as deleteStoredDocument,
@@ -59,6 +68,17 @@ type PendingSave = {
   revision: number;
 };
 
+type RuntimeFileAssociation = {
+  handle: FileSystemFileHandle;
+  savedMarkdown: string;
+};
+
+type FileUiStatus = {
+  saving: boolean;
+  message: string | null;
+  savedMarkdown: string | null;
+};
+
 function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean {
   return (
     left.pageSize === right.pageSize &&
@@ -82,6 +102,9 @@ export function EditorWorkspace() {
   const [paginationReady, setPaginationReady] = useState(false);
   const [printError, setPrintError] = useState(false);
   const [documentError, setDocumentError] = useState<string | null>(null);
+  const [fileOperationNotice, setFileOperationNotice] = useState<string | null>(null);
+  const [fileOperationBusy, setFileOperationBusy] = useState(false);
+  const [fileStatusById, setFileStatusById] = useState<Map<string, FileUiStatus>>(() => new Map());
   const [isSwitching, setIsSwitching] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
   const [isWorkspaceTransitioning, setIsWorkspaceTransitioning] = useState(false);
@@ -94,6 +117,8 @@ export function EditorWorkspace() {
   const switchGenerationRef = useRef(0);
   const switchingRef = useRef(false);
   const managementLockRef = useRef(false);
+  const fileAssociationsRef = useRef(new Map<string, RuntimeFileAssociation>());
+  const deletedDocumentIdsRef = useRef(new Set<string>());
   const mountedRef = useRef(false);
 
   const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>) => {
@@ -245,10 +270,19 @@ export function EditorWorkspace() {
   }, [clearAutosaveTimer, flushPendingSave, queueDocumentSave]);
 
   const updateMarkdown = useCallback((value: string) => {
-    if (documentRef.current?.markdown === value) return;
+    const current = documentRef.current;
+    if (!current || current.markdown === value) return;
     setPaginationReady(false);
+    const fileStatus = fileStatusById.get(current.id);
+    if (fileStatus?.message) {
+      setFileStatusById((previous) => {
+        const next = new Map(previous);
+        next.set(current.id, { ...fileStatus, message: null });
+        return next;
+      });
+    }
     updateDocument({ markdown: value });
-  }, [updateDocument]);
+  }, [fileStatusById, updateDocument]);
 
   const updateDocumentSettings = useCallback((settings: DocumentSettings) => {
     const current = documentRef.current;
@@ -430,6 +464,13 @@ export function EditorWorkspace() {
     void enqueueOperation(async () => {
       const replacement = createDocmarkDocument("", DEFAULT_DOCUMENT_SETTINGS);
       const result = await deleteStoredDocument(id, replacement);
+      deletedDocumentIdsRef.current.add(id);
+      fileAssociationsRef.current.delete(id);
+      setFileStatusById((previous) => {
+        const next = new Map(previous);
+        next.delete(id);
+        return next;
+      });
       setDocuments(result.documents);
       if (deletingActive) {
         documentRef.current = result.activeDocument;
@@ -454,6 +495,199 @@ export function EditorWorkspace() {
       .finally(endManagement);
   }, [beginManagement, clearAutosaveTimer, endManagement, enqueueOperation]);
 
+  const importMarkdownFile = useCallback((file: File, handle?: FileSystemFileHandle) => {
+    if (!beginManagement()) return;
+    const previousDocument = documentRef.current;
+    setFileOperationBusy(true);
+    setFileOperationNotice(null);
+
+    void (async () => {
+      let activationStarted = false;
+      try {
+        const markdown = await readMarkdownFile(file);
+        const imported = createDocmarkDocument(
+          markdown,
+          DEFAULT_DOCUMENT_SETTINGS,
+          markdownTitleFromFilename(file.name),
+        );
+        activationStarted = true;
+        setIsWorkspaceTransitioning(true);
+        setPersistenceStatus("loading");
+        await flushPendingSave();
+        await enqueueOperation(async () => {
+          await putDocument(imported, { activate: true });
+          await finishActivation(imported);
+          if (handle && !deletedDocumentIdsRef.current.has(imported.id)) {
+            fileAssociationsRef.current.set(imported.id, { handle, savedMarkdown: markdown });
+          }
+          setFileStatusById((previous) => {
+            const next = new Map(previous);
+            next.set(imported.id, {
+              saving: false,
+              message: null,
+              savedMarkdown: handle ? markdown : null,
+            });
+            return next;
+          });
+        });
+      } catch (error) {
+        if (previousDocument) {
+          documentRef.current = previousDocument;
+          setDocumentRecord(previousDocument);
+          setIsWorkspaceTransitioning(false);
+        }
+        if (activationStarted) {
+          setPersistenceStatus("error");
+          setDocumentError(error instanceof Error ? error.message : "Could not add this document to local storage.");
+        }
+        if (!isPickerCancellation(error)) {
+          setFileOperationNotice(
+            error instanceof Error ? error.message : `Could not open “${file.name}”.`,
+          );
+        }
+      } finally {
+        setFileOperationBusy(false);
+        endManagement();
+      }
+    })();
+  }, [beginManagement, endManagement, enqueueOperation, finishActivation, flushPendingSave]);
+
+  const saveDocumentAs = useCallback((snapshot: Pick<DocmarkDocument, "id" | "title" | "markdown">) => {
+    const filename = suggestedMarkdownFilename(snapshot.title);
+    setFileOperationBusy(true);
+    setFileOperationNotice(null);
+    setFileStatusById((previous) => {
+      const next = new Map(previous);
+      next.set(snapshot.id, {
+        saving: true,
+        message: null,
+        savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+      });
+      return next;
+    });
+
+    void saveMarkdownAsFile(filename, snapshot.markdown)
+      .then((result) => {
+        if (deletedDocumentIdsRef.current.has(snapshot.id)) {
+          setFileStatusById((previous) => {
+            const next = new Map(previous);
+            next.delete(snapshot.id);
+            return next;
+          });
+          return;
+        }
+        if (result.kind === "saved") {
+          fileAssociationsRef.current.set(snapshot.id, {
+            handle: result.handle,
+            savedMarkdown: snapshot.markdown,
+          });
+        } else {
+          fileAssociationsRef.current.delete(snapshot.id);
+        }
+        setFileStatusById((previous) => {
+          const next = new Map(previous);
+          next.set(snapshot.id, {
+            saving: false,
+            message: result.kind === "downloaded" ? `Downloaded ${filename}` : null,
+            savedMarkdown: result.kind === "saved" ? snapshot.markdown : null,
+          });
+          return next;
+        });
+      })
+      .catch((error: unknown) => {
+        if (!isPickerCancellation(error)) {
+          const message = error instanceof Error ? error.message : "Could not save this Markdown file.";
+          setFileOperationNotice(`Could not save “${snapshot.title}”: ${message}`);
+          setFileStatusById((previous) => {
+            const next = new Map(previous);
+            if (deletedDocumentIdsRef.current.has(snapshot.id)) next.delete(snapshot.id);
+            else next.set(snapshot.id, {
+                saving: false,
+                message: "File save failed",
+                savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+              });
+            return next;
+          });
+        }
+      })
+      .finally(() => {
+        setFileStatusById((previous) => {
+          const next = new Map(previous);
+          const status = next.get(snapshot.id);
+          if (status?.saving) next.set(snapshot.id, { ...status, saving: false });
+          return next;
+        });
+        setFileOperationBusy(false);
+      });
+  }, []);
+
+  const saveMarkdown = useCallback(() => {
+    const current = documentRef.current;
+    if (!current || fileOperationBusy) return;
+    const snapshot = { id: current.id, title: current.title, markdown: current.markdown };
+    const association = fileAssociationsRef.current.get(snapshot.id);
+    if (!association) {
+      saveDocumentAs(snapshot);
+      return;
+    }
+
+    setFileOperationBusy(true);
+    setFileOperationNotice(null);
+    setFileStatusById((previous) => {
+      const next = new Map(previous);
+      next.set(snapshot.id, {
+        saving: true,
+        message: null,
+        savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+      });
+      return next;
+    });
+    void writeMarkdownFile(association.handle, snapshot.markdown)
+      .then(() => {
+        const currentAssociation = fileAssociationsRef.current.get(snapshot.id);
+        if (
+          currentAssociation?.handle === association.handle &&
+          !deletedDocumentIdsRef.current.has(snapshot.id)
+        ) {
+          fileAssociationsRef.current.set(snapshot.id, {
+            ...currentAssociation,
+            savedMarkdown: snapshot.markdown,
+          });
+        }
+        setFileStatusById((previous) => {
+          const next = new Map(previous);
+          if (deletedDocumentIdsRef.current.has(snapshot.id)) next.delete(snapshot.id);
+          else next.set(snapshot.id, {
+              saving: false,
+              message: null,
+              savedMarkdown: snapshot.markdown,
+            });
+          return next;
+        });
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Could not save this Markdown file.";
+        setFileOperationNotice(`Could not save “${snapshot.title}”: ${message}`);
+        setFileStatusById((previous) => {
+          const next = new Map(previous);
+          if (deletedDocumentIdsRef.current.has(snapshot.id)) next.delete(snapshot.id);
+          else next.set(snapshot.id, {
+              saving: false,
+              message: "File save failed",
+              savedMarkdown: next.get(snapshot.id)?.savedMarkdown ?? null,
+            });
+          return next;
+        });
+      })
+      .finally(() => setFileOperationBusy(false));
+  }, [fileOperationBusy, saveDocumentAs]);
+
+  const saveMarkdownAs = useCallback(() => {
+    const current = documentRef.current;
+    if (!current || fileOperationBusy) return;
+    saveDocumentAs({ id: current.id, title: current.title, markdown: current.markdown });
+  }, [fileOperationBusy, saveDocumentAs]);
+
   function printDocument() {
     setPrintError(false);
     if (typeof window.print !== "function") {
@@ -469,6 +703,20 @@ export function EditorWorkspace() {
 
   const currentDocument = documentRecord;
   const loading = documentRecord === null || isWorkspaceTransitioning;
+  const activeFileStatus = currentDocument
+    ? fileStatusById.get(currentDocument.id)
+    : undefined;
+  const fileStatusMessage = fileOperationNotice ?? (
+    activeFileStatus?.saving
+      ? "Saving file…"
+      : activeFileStatus?.message ?? (
+        activeFileStatus?.savedMarkdown !== null && activeFileStatus !== undefined
+          ? activeFileStatus.savedMarkdown === currentDocument?.markdown
+            ? "File saved"
+            : "File modified"
+          : null
+      )
+  );
   const statusText: Record<PersistenceStatus, string> = {
     loading: "Loading document…",
     saved: "Saved",
@@ -501,6 +749,14 @@ export function EditorWorkspace() {
           ) : <span className="text-sm text-muted">Documents</span>}
         </div>
         <div className="flex shrink-0 items-center gap-3">
+          <MarkdownFileActions
+            disabled={fileOperationBusy}
+            status={fileStatusMessage}
+            onOpenFile={importMarkdownFile}
+            onSave={saveMarkdown}
+            onSaveAs={saveMarkdownAs}
+            onError={setFileOperationNotice}
+          />
           <span
             role="status"
             aria-live="polite"

@@ -95,6 +95,43 @@ Measurement Layer → Pagination Engine → Page[]
                                         Browser Print Engine → Save as PDF
 ```
 
+## Local Markdown files
+
+IndexedDB remains the workspace store and source of truth for the active `DocmarkDocument`. A local `.md` file is an explicit import/export boundary: Open reads its text in the browser, creates a new document with default settings, and persists/activates it through the existing workspace lifecycle. Open never replaces a document by filename. The active Markdown then follows the normal CodeMirror, Markdown pipeline, sanitization, preview, pagination, and IndexedDB autosave paths.
+
+```text
+                     ┌────────────────────┐
+                     │ Local .md File     │
+                     └─────────┬──────────┘
+                               │
+                             Open
+                               │
+                               ▼
+                       DocmarkDocument
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+                    ▼                     ▼
+               React State            IndexedDB
+                    │                  Autosave
+          ┌─────────┼─────────┐
+          │         │         │
+          ▼         ▼         ▼
+      CodeMirror  Preview   Pagination
+          │
+          │ explicit Save
+          ▼
+      Local .md File
+```
+
+Open and Save use feature detection for `window.showOpenFilePicker` and `window.showSaveFilePicker`; no browser or user-agent detection is used. When available, the native picker gives the user a `FileSystemFileHandle`. Otherwise Open uses a resettable Markdown file input, and Save/Save As downloads a UTF-8 Markdown Blob and revokes its object URL. The fallback cannot overwrite or remember a destination, so each Save downloads a new file. Files larger than 100 MB are rejected to avoid excessive browser memory use. The native picker and fallback both operate only after user action and process file contents locally.
+
+File handles and the Markdown snapshot last written to each handle live in runtime maps keyed by the owning document ID. They are not part of `DocmarkDocument` and are not serialized to IndexedDB. Switching documents preserves those per-ID runtime associations; reload restores the IndexedDB document but loses its file handle, so Save then opens Save As. Open associates its selected handle after the new document is persisted, and Save As associates a handle only with the document ID whose Markdown snapshot it captured. Save completion compares that snapshot with current Markdown, so typing during a write remains visibly `File modified`. Save does not block CodeMirror or require filesystem writes during autosave.
+
+Docmark title and filename are independent. Rename preserves the association without renaming the file. Duplicate copies Markdown and page settings but gets no association. Delete removes only the workspace document and its runtime association; it never deletes the physical file. Picker cancellation leaves the active document and existing association unchanged. Read/write failures are shown separately from the IndexedDB save status. Settings, timestamps, HTML, and pagination are not written to `.md`; only the current Markdown source is saved, including existing page-break directives.
+
+Imported files enter the same Markdown pipeline as editor content. The existing sanitization boundary remains in place, and Markdown is never executed or uploaded. File access is limited to files explicitly selected by the user; there is no backend, upload, cloud storage, filesystem watching, or external-change reload.
+
 The `lib/markdown` pipeline is asynchronous, local to the browser during editing, and independent of React and CodeMirror. It turns Markdown into sanitized HTML. A small MDAST transform recognizes only the standalone Docmark page-break block and emits a semantic marker. The sanitize schema allows only that marker attribute on a `div`; the rest of the default sanitization policy remains in place. Inline mentions and fenced code remain ordinary content.
 
 ## Physical document layout
@@ -123,7 +160,7 @@ Print styles hide the editor, application header, controls, preview labels, canv
 
 ## Privacy
 
-Markdown, images, and printed output are not sent to servers for core document features. The editor holds Markdown in React state and runs parsing, transformation, sanitization, measurement, pagination, and print preparation in the browser. The user chooses a destination such as Save as PDF in the browser's native print dialog. Any future network feature must remain separate from this core workflow.
+Markdown, images, and printed output are not sent to servers for core document features. The editor holds Markdown in React state and runs parsing, transformation, sanitization, measurement, pagination, and print preparation in the browser. Markdown files are read locally and written only to a user-selected file or downloaded locally; there is no upload. The user chooses a destination such as Save as PDF in the browser's native print dialog. Any future network feature must remain separate from this core workflow.
 
 ## Separation of concerns
 
@@ -145,7 +182,6 @@ These are planned and are not implemented yet:
 - Document themes
 - Markdown syntax extensions beyond GFM
 - Direct PDF generation and print options beyond the browser's native dialog
-- Local Markdown file open/save
 - Mermaid diagrams and KaTeX math
 - Front matter and table of contents
 - PWA and offline support
