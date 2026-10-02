@@ -9,10 +9,19 @@ export type PageMargins = {
   left: number;
 };
 
+export type PageNumberPosition = "bottom-left" | "bottom-center" | "bottom-right";
+
+export type PageNumberSettings = {
+  enabled: boolean;
+  position: PageNumberPosition;
+  startAt: number;
+};
+
 export type DocumentSettings = {
   pageSize: PageSize;
   orientation: PageOrientation;
   margins: PageMargins;
+  pageNumbers: PageNumberSettings;
 };
 
 export type PageDimensions = {
@@ -24,7 +33,20 @@ export const DEFAULT_DOCUMENT_SETTINGS: DocumentSettings = {
   pageSize: "a4",
   orientation: "portrait",
   margins: { top: 20, right: 20, bottom: 20, left: 20 },
+  pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
 };
+
+export function isPageNumberPosition(value: unknown): value is PageNumberPosition {
+  return value === "bottom-left" || value === "bottom-center" || value === "bottom-right";
+}
+
+export function isValidPageNumberStartAt(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+}
+
+export function getPageNumber(displayStartAt: number, physicalPageIndex: number): number {
+  return displayStartAt + physicalPageIndex;
+}
 
 export const MAX_PAGE_MARGIN_MM = 100;
 

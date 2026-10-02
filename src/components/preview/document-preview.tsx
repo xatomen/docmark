@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { renderMarkdown } from "@/lib/markdown/render-markdown";
 import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
+import { PageDecorations } from "@/components/document/page-decorations";
 import {
   getPageDimensions,
   type DocumentSettings,
@@ -202,6 +203,13 @@ export function DocumentPreview({
                 className="document-theme document-content"
                 style={contentStyle}
                 dangerouslySetInnerHTML={{ __html: page.html }}
+              />
+              <PageDecorations
+                pageIndex={index}
+                settings={settings.pageNumbers}
+                leftMarginMm={settings.margins.left}
+                rightMarginMm={settings.margins.right}
+                bottomMarginMm={settings.margins.bottom}
               />
             </article>
           </div>

@@ -2,6 +2,8 @@ import {
   DEFAULT_DOCUMENT_SETTINGS,
   getMarginValidationError,
   getPageDimensions,
+  isPageNumberPosition,
+  isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
   type PageMargins,
@@ -78,6 +80,7 @@ function copySettings(settings: DocumentSettings): DocumentSettings {
     pageSize: settings.pageSize,
     orientation: settings.orientation,
     margins: { ...settings.margins },
+    pageNumbers: { ...settings.pageNumbers },
   };
 }
 
@@ -142,7 +145,20 @@ function normalizeSettings(value: unknown): DocumentSettings {
     return copySettings(defaults);
   }
 
-  return { pageSize, orientation, margins };
+  const rawPageNumbers = isRecord(source.pageNumbers) ? source.pageNumbers : {};
+  const pageNumbers = {
+    enabled: typeof rawPageNumbers.enabled === "boolean"
+      ? rawPageNumbers.enabled
+      : defaults.pageNumbers.enabled,
+    position: isPageNumberPosition(rawPageNumbers.position)
+      ? rawPageNumbers.position
+      : defaults.pageNumbers.position,
+    startAt: isValidPageNumberStartAt(rawPageNumbers.startAt)
+      ? rawPageNumbers.startAt
+      : defaults.pageNumbers.startAt,
+  };
+
+  return { pageSize, orientation, margins, pageNumbers };
 }
 
 /** Build a document on the client; call only after browser initialization. */

@@ -25,6 +25,7 @@ describe("DocmarkDocument model", () => {
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 17, right: 19, bottom: 21, left: 23 },
+      pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
     }, "Quarterly report");
     source.createdAt = "2000-01-01T00:00:00.000Z";
     source.updatedAt = "2000-01-02T00:00:00.000Z";
@@ -45,6 +46,8 @@ describe("DocmarkDocument model", () => {
     expect(duplicate.updatedAt).toBe(duplicate.createdAt);
     expect(duplicate.settings).not.toBe(source.settings);
     expect(duplicate.settings.margins).not.toBe(source.settings.margins);
+    expect(duplicate.settings.pageNumbers).toEqual(source.settings.pageNumbers);
+    expect(duplicate.settings.pageNumbers).not.toBe(source.settings.pageNumbers);
     expect(duplicate.portableMarkdown).toEqual(source.portableMarkdown);
     expect(duplicate.portableMarkdown).not.toBe(source.portableMarkdown);
     expect("fileHandle" in duplicate).toBe(false);
@@ -69,5 +72,25 @@ describe("DocmarkDocument model", () => {
     });
     expect(normalized && "fileHandle" in normalized).toBe(false);
     expect(normalized?.portableMarkdown).toEqual(createDefaultPortableMarkdownMetadata());
+  });
+
+  it("defaults page numbers for records persisted before M6.2", () => {
+    const legacy = {
+      id: "pre-page-numbers",
+      title: "Legacy settings",
+      markdown: "# Preserved",
+      settings: {
+        pageSize: "a4",
+        orientation: "portrait",
+        margins: { top: 20, right: 20, bottom: 20, left: 20 },
+      },
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    };
+    expect(normalizeStoredDocument(legacy)?.settings.pageNumbers).toEqual({
+      enabled: false,
+      position: "bottom-center",
+      startAt: 1,
+    });
   });
 });

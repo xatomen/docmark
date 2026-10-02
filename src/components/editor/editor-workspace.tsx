@@ -95,7 +95,11 @@ function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSna
     id: document.id,
     title: document.title,
     markdown: document.markdown,
-    settings: { ...document.settings, margins: { ...document.settings.margins } },
+    settings: {
+      ...document.settings,
+      margins: { ...document.settings.margins },
+      pageNumbers: { ...document.settings.pageNumbers },
+    },
     portableMarkdown: { ...document.portableMarkdown },
   };
 }
@@ -107,8 +111,20 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&
     left.margins.bottom === right.margins.bottom &&
-    left.margins.left === right.margins.left
+    left.margins.left === right.margins.left &&
+    left.pageNumbers.enabled === right.pageNumbers.enabled &&
+    left.pageNumbers.position === right.pageNumbers.position &&
+    left.pageNumbers.startAt === right.pageNumbers.startAt
   );
+}
+
+function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolean {
+  return left.pageSize === right.pageSize &&
+    left.orientation === right.orientation &&
+    left.margins.top === right.margins.top &&
+    left.margins.right === right.margins.right &&
+    left.margins.bottom === right.margins.bottom &&
+    left.margins.left === right.margins.left;
 }
 
 function normalizeTitle(title: string): string {
@@ -309,7 +325,7 @@ export function EditorWorkspace() {
   const updateDocumentSettings = useCallback((settings: DocumentSettings) => {
     const current = documentRef.current;
     if (!current || sameSettings(current.settings, settings)) return;
-    setPaginationReady(false);
+    if (!samePageLayout(current.settings, settings)) setPaginationReady(false);
     updateDocument({ settings });
   }, [updateDocument]);
 

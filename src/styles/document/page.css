@@ -31,6 +31,48 @@
   overflow: visible;
 }
 
+.page-decorations {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: max(var(--page-margin-bottom), 10mm);
+  align-items: center;
+  color: #686c64;
+  font-family: inherit;
+  pointer-events: none;
+}
+
+.page-number {
+  position: absolute;
+  top: 50%;
+  display: block;
+  max-width: calc(100% - var(--page-number-left) - var(--page-number-right));
+  font-size: 9pt;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  transform: translateY(-50%);
+  white-space: normal;
+}
+
+.page-number-bottom-left {
+  left: var(--page-number-left);
+  text-align: left;
+}
+
+.page-number-bottom-center {
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.page-number-bottom-right {
+  right: var(--page-number-right);
+  text-align: right;
+}
+
 .page-caption {
   color: #686c64;
 }

@@ -70,6 +70,7 @@ describe("IndexedDB document persistence", () => {
         pageSize: "letter",
         orientation: "landscape",
         margins: { top: 17, right: 19, bottom: 21, left: 23 },
+        pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
       },
     );
 

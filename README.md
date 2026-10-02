@@ -76,6 +76,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for architectural principles and planne
 - Portrait and landscape orientation
 - Configurable margins in millimeters
 - Responsive on-screen page scaling
+- Optional physical page numbers at bottom-left, bottom-center, or bottom-right, with a configurable starting number
 - Automatic pagination based on rendered browser layout
 - Manual page breaks using the Docmark block directive:
 
@@ -112,6 +113,19 @@ docmark:
 ```
 
 The **Include Docmark settings in Markdown** option is off for new and ordinary Markdown documents. It starts on when a file already has supported Docmark metadata. Docmark preserves unrelated Front Matter, while the editor shows and edits only the Markdown body. The complete workspace state remains in IndexedDB; the file carries only the optional external metadata and portable page settings. Malformed Front Matter or an unsupported Docmark version is preserved and shown with a non-blocking warning; Docmark does not rewrite that metadata.
+
+Page numbers are optional and default to off. They are physical page decorations, so enabling them does not add Markdown or change pagination. Supported positions are bottom-left (aligned with the content area's left edge), bottom-center (centered on the physical page), and bottom-right (aligned with the content area's right edge). Vertically, the number is centered within the bottom margin when space allows and remains safely inset from the physical page edge for very small margins. `startAt` is a positive integer. Numbers are shared by preview and browser print/PDF, scale with the preview, and are saved in IndexedDB. When portable settings are enabled, the same settings are stored under `docmark.pageNumbers`; otherwise they stay local to the browser document.
+
+```yaml
+---
+docmark:
+  version: 1
+  pageNumbers:
+    enabled: true
+    position: bottom-center
+    startAt: 1
+---
+```
 
 ## Initial roadmap
 

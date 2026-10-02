@@ -9,6 +9,8 @@ import {
   DEFAULT_DOCUMENT_SETTINGS,
   getMarginValidationError,
   getPageDimensions,
+  isPageNumberPosition,
+  isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
   type PageMargins,
@@ -116,7 +118,23 @@ function readSettings(docmark: Record<string, unknown>): {
     invalid = true;
     return { settings: { ...defaults, margins: { ...defaults.margins } }, invalid };
   }
-  return { settings: { pageSize, orientation, margins }, invalid };
+  if (Object.hasOwn(docmark, "pageNumbers") && !isRecord(docmark.pageNumbers)) invalid = true;
+  const rawPageNumbers = isRecord(docmark.pageNumbers) ? docmark.pageNumbers : {};
+  const pageNumbers = {
+    enabled: typeof rawPageNumbers.enabled === "boolean"
+      ? rawPageNumbers.enabled
+      : defaults.pageNumbers.enabled,
+    position: isPageNumberPosition(rawPageNumbers.position)
+      ? rawPageNumbers.position
+      : defaults.pageNumbers.position,
+    startAt: isValidPageNumberStartAt(rawPageNumbers.startAt)
+      ? rawPageNumbers.startAt
+      : defaults.pageNumbers.startAt,
+  };
+  if (Object.hasOwn(rawPageNumbers, "enabled") && typeof rawPageNumbers.enabled !== "boolean") invalid = true;
+  if (Object.hasOwn(rawPageNumbers, "position") && !isPageNumberPosition(rawPageNumbers.position)) invalid = true;
+  if (Object.hasOwn(rawPageNumbers, "startAt") && !isValidPageNumberStartAt(rawPageNumbers.startAt)) invalid = true;
+  return { settings: { pageSize, orientation, margins, pageNumbers }, invalid };
 }
 
 export function getPortableMarkdownWarning(metadata: PortableMarkdownMetadata): string | null {
@@ -255,7 +273,10 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&
     left.margins.bottom === right.margins.bottom &&
-    left.margins.left === right.margins.left;
+    left.margins.left === right.margins.left &&
+    left.pageNumbers.enabled === right.pageNumbers.enabled &&
+    left.pageNumbers.position === right.pageNumbers.position &&
+    left.pageNumbers.startAt === right.pageNumbers.startAt;
 }
 
 function getYamlMap(document: ReturnType<typeof parseDocument>, key: string): YAMLMap {
@@ -282,6 +303,10 @@ function updateDocmarkNamespace(
   page.set("orientation", snapshot.page.orientation);
   const margins = getYamlMapFromMap(yamlDocument, page, "margins");
   for (const [key, value] of Object.entries(snapshot.page.margins)) margins.set(key, value);
+  const pageNumbers = getYamlMapFromMap(yamlDocument, docmark, "pageNumbers");
+  pageNumbers.set("enabled", settings.pageNumbers.enabled);
+  pageNumbers.set("position", settings.pageNumbers.position);
+  pageNumbers.set("startAt", settings.pageNumbers.startAt);
 }
 
 function getYamlMapFromMap(

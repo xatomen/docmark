@@ -2,10 +2,37 @@ import { describe, expect, it } from "vitest";
 import {
   getMarginValidationError,
   getPageDimensions,
+  getPageNumber,
+  isPageNumberPosition,
+  isValidPageNumberStartAt,
+  DEFAULT_DOCUMENT_SETTINGS,
   type PageSize,
 } from "@/lib/document/settings";
 
 describe("physical page settings", () => {
+  it("defaults page numbers off, centered, and starting at one", () => {
+    expect(DEFAULT_DOCUMENT_SETTINGS.pageNumbers).toEqual({
+      enabled: false,
+      position: "bottom-center",
+      startAt: 1,
+    });
+  });
+
+  it("validates supported positions and positive safe integer start values", () => {
+    expect(["bottom-left", "bottom-center", "bottom-right"].every(isPageNumberPosition)).toBe(true);
+    expect(isPageNumberPosition("top-center")).toBe(false);
+    expect([1, 5, 999999].every(isValidPageNumberStartAt)).toBe(true);
+    expect([0, -1, 1.5, "5", Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]
+      .every((value) => !isValidPageNumberStartAt(value))).toBe(true);
+  });
+
+  it("derives displayed numbers from the start value and physical page index", () => {
+    expect(getPageNumber(1, 0)).toBe(1);
+    expect(getPageNumber(1, 4)).toBe(5);
+    expect(getPageNumber(5, 0)).toBe(5);
+    expect(getPageNumber(5, 4)).toBe(9);
+  });
+
   it.each<PageSize>(["a4", "letter"])("keeps %s portrait taller than it is wide", (pageSize) => {
     const dimensions = getPageDimensions(pageSize, "portrait");
     expect(dimensions.heightMm).toBeGreaterThan(dimensions.widthMm);

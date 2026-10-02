@@ -85,6 +85,7 @@ describe("portable Markdown front matter", () => {
       pageSize: "letter",
       orientation: "portrait",
       margins: { top: 15, right: 20, bottom: 20, left: 20 },
+      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
     });
     expect(parsed.markdown).toBe("# Report");
     expect(parsed.portableMarkdown.includeDocmarkSettings).toBe(true);
@@ -128,6 +129,97 @@ describe("portable Markdown front matter", () => {
     });
   });
 
+  it("restores page numbers from v1 metadata and defaults partial fields", () => {
+    const complete = parseMarkdownFile([
+      "---",
+      "docmark:",
+      "  version: 1",
+      "  pageNumbers:",
+      "    enabled: true",
+      "    position: bottom-right",
+      "    startAt: 5",
+      "---",
+      "# Numbered",
+    ].join("\n"));
+    expect(complete.settings.pageNumbers).toEqual({
+      enabled: true,
+      position: "bottom-right",
+      startAt: 5,
+    });
+
+    const partial = parseMarkdownFile("---\ndocmark:\n  version: 1\n  pageNumbers:\n    enabled: true\n---\n# Partial");
+    expect(partial.settings.pageNumbers).toEqual({
+      enabled: true,
+      position: "bottom-center",
+      startAt: 1,
+    });
+  });
+
+  it("falls back per invalid page number field and preserves unknown fields", () => {
+    const source = [
+      "---",
+      "docmark:",
+      "  version: 1",
+      "  pageNumbers:",
+      "    enabled: true",
+      "    position: sideways",
+      "    startAt: -100",
+      "    futureStyle: roman",
+      "  page:",
+      "    size: Letter",
+      "---",
+      "# Content",
+    ].join("\n");
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.pageSize).toBe("letter");
+    expect(parsed.settings.pageNumbers).toEqual({
+      enabled: true,
+      position: "bottom-center",
+      startAt: 1,
+    });
+    expect(parsed.portableMarkdown.status).toBe("invalid-settings");
+
+    const document = asDocument(source);
+    document.settings.pageNumbers = { enabled: true, position: "bottom-left", startAt: 999999 };
+    const saved = serializeMarkdownFile(document);
+    expect(saved).toContain("futureStyle: roman");
+    expect(saved).toContain("position: bottom-left");
+    expect(saved).toContain("startAt: 999999");
+
+    const invalidToggle = parseMarkdownFile([
+      "---",
+      "docmark:",
+      "  version: 1",
+      "  page:",
+      "    size: Letter",
+      "  pageNumbers:",
+      "    enabled: banana",
+      "    position: bottom-right",
+      "    startAt: 3",
+      "---",
+      "# Safe fallback",
+    ].join("\n"));
+    expect(invalidToggle.settings.pageSize).toBe("letter");
+    expect(invalidToggle.settings.pageNumbers).toEqual({
+      enabled: false,
+      position: "bottom-right",
+      startAt: 3,
+    });
+  });
+
+  it("serializes page number settings only when portable metadata is enabled", () => {
+    const document = asDocument("# Body");
+    document.settings.pageNumbers = { enabled: true, position: "bottom-right", startAt: 5 };
+    expect(serializeMarkdownFile(document)).toBe("# Body");
+
+    document.portableMarkdown.includeDocmarkSettings = true;
+    const saved = serializeMarkdownFile(document);
+    expect(saved).toContain("pageNumbers:");
+    expect(saved).toContain("enabled: true");
+    expect(saved).toContain("position: bottom-right");
+    expect(saved).toContain("startAt: 5");
+  });
+
   it.each([
     ["missing version", "docmark:\n  page:\n    size: Letter", "missing-version"],
     ["future version", "docmark:\n  version: 99\n  futuristic: true", "unsupported-version"],
@@ -160,6 +252,7 @@ describe("portable Markdown front matter", () => {
       pageSize: "letter",
       orientation: "landscape",
       margins: { top: 15, right: 20, bottom: 15, left: 20 },
+      pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
     };
     const portable = serializeMarkdownFile(document);
 

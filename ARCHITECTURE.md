@@ -69,6 +69,8 @@ DocumentSettings ─────────────────────
                                                                                  └→ Print Layout → Browser Print Engine → Save as PDF
 ```
 
+`DocumentSettings` includes optional page-number settings (`enabled`, bottom position, and positive-integer `startAt`). They follow the same React and IndexedDB path as physical page settings. Page numbers are serialized into Front Matter only while portable metadata is enabled.
+
 ## Markdown data flow
 
 ```text
@@ -167,7 +169,7 @@ Front Matter is an optional file representation. `DocmarkDocument.markdown` rema
                   .md file
 ```
 
-The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), and four `margins` values in millimeters to `DocumentSettings`. Missing fields use current defaults. Invalid individual values fall back independently; impossible opposing margin pairs fall back to defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
+The `yaml` document API parses Front Matter only when `---` opens the first line (an optional UTF-8 BOM is accepted). Docmark owns only the root `docmark` key. Schema version 1 maps `docmark.page.size` (`A4` or `Letter`), `orientation` (`portrait` or `landscape`), four `margins` values in millimeters, and optional `pageNumbers` settings to `DocumentSettings`. Page-number fields are validated independently; missing or invalid fields use defaults. Unknown external and Docmark fields remain in the YAML AST when the namespace is updated.
 
 The **Include Docmark settings in Markdown** preference defaults off for new and ordinary Markdown files, and on for files with supported v1 metadata. With it off, ordinary Markdown remains a body-only file; external Front Matter is retained, and turning it off on a portable document removes only the root `docmark` key. With it on, the serializer writes version 1 and the current page settings. The same serializer drives Save, Save As, fallback downloads, and file dirty-state comparison.
 
@@ -187,6 +189,29 @@ The `lib/markdown` pipeline is asynchronous, local to the browser during editing
 
 `DocumentPreview` combines sanitized HTML with these settings and the M3.2 pagination engine. The engine receives already-rendered DOM, never Markdown. It computes the available content box from the shared physical dimensions and margins, then measures fragments in an offscreen layout layer with the same width, document theme, typography, and spacing as the visible page content. The layer remains in browser layout, is hidden visually, and is marked `aria-hidden` and inert.
 
+Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer. M6.2 currently places only an optional page number in this layer. Its display value is derived as `startAt + physical page index`, so manual breaks and empty physical pages count naturally. **Page numbers do not participate in pagination measurement.** The bottom decoration area has height `max(bottom margin, 10 mm)` and centers the full page-number line box. Its center is therefore `max(bottom margin / 2, 5 mm)` from the physical bottom: normal margins center within the margin, while small margins retain a safe physical inset. The line box remains inside the sheet; its vertical placement does not change user margins or trigger repagination. Bottom-left and bottom-right align with the content area's edges; bottom-center aligns with the physical page center.
+
+```text
+Pagination Engine
+       │
+       ▼
+     Page[]
+       │
+       ▼
+ Physical Page
+ ┌────────────────────┐
+ │ Decorations       │
+ │                    │
+ │ Content            │
+ │                    │
+ │ Decorations       │
+ └────────────────────┘
+       ├── Preview
+       └── Print/PDF
+```
+
+This composition boundary is intended to support future headers and footers without changing the Pagination Engine.
+
 The pagination pass is synchronous after browser font readiness. It uses no polling and does not observe its own output. A generation counter and effect cleanup discard stale work after content or settings change. Markdown rendering depends only on Markdown; page size, orientation, and margins trigger pagination without recreating CodeMirror or rerunning the Markdown pipeline. Viewport width is a separate `ResizeObserver` path that changes only the shared visual scale and cannot change page count.
 
 `lib/document/pagination` returns stable page IDs and rendered fragments. Blocks that fit stay together; lists are grouped at list-item boundaries, tables are grouped at row boundaries, and long text-bearing blocks are split with DOM Range fragments that preserve valid nested HTML. Table continuations repeat `<thead>` when present. A heading that would be left at the bottom of a page moves with following content when that content fits. Manual page-break markers always end the current page and can intentionally produce blank pages at the start, between consecutive markers, or at the end. An empty document produces one blank page.
@@ -199,7 +224,7 @@ The renderer uses one print-safe wrapping policy inside the physical content wid
 
 ## Screen preview and print layout
 
-The pagination engine produces the single source of truth, `Page[]`, from sanitized rendered content and the physical settings. The screen preview renders these pages with a viewport-dependent visual scale. Print CSS removes that transform and preview-only positioning, then renders the same pages at their physical width and height in millimeters. Printing does not run a second pagination pass.
+The pagination engine produces the single source of truth, `Page[]`, from sanitized rendered content and the physical settings. The screen preview renders these pages with a viewport-dependent visual scale. Content and decorations are both descendants of the same physical page shell, so they scale together. Print CSS removes that transform and preview-only positioning, then renders the same page shells and decorations at their physical width and height in millimeters. Printing does not run a second pagination pass; visible page numbers therefore have preview/print parity and do not depend on browser headers, footers, or CSS counters.
 
 The `Export PDF` button waits until rendering and pagination have completed, then calls the browser's native `window.print()` API. A print-only `@page` rule is generated from `getPageDimensions`, so A4/Letter and portrait/landscape dimensions follow the current settings. Its margin is zero because Docmark already includes its configured margins in each physical page. Explicit breaks and blank pages are preserved because print receives the existing `Page[]` without reparsing Markdown.
 
@@ -215,7 +240,7 @@ Markdown, images, and printed output are not sent to servers for core document f
 - **`lib/document/settings`** defines page size, orientation, millimeter margins, dimensions, and margin validation. It does not depend on Markdown.
 - **`lib/document/pagination`** paginates already-rendered DOM fragments from browser measurements. It does not parse Markdown or depend on React.
 - **`components/preview`** owns the measurement layer, page rendering, pagination readiness, responsive scaling, and print layout dimensions. It passes sanitized HTML and physical settings to the pagination engine.
-- **`components/document`** provides reusable document visuals that preview and export can share.
+- **`components/document`** provides reusable document visuals and the `PageDecorations` layer that preview and print share.
 - **`styles/print.css`** owns print-only UI exclusion and physical page presentation. A dynamic `@page` rule uses the dimensions already centralized in `lib/document/settings`.
 - **`lib/storage`** persists source documents and settings locally in IndexedDB; it does not store derived preview HTML or pagination results.
 - **`components/editor/document-switcher`** displays local document summaries by `updatedAt` descending and provides document management actions.
