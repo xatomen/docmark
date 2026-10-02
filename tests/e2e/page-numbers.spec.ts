@@ -224,8 +224,8 @@ test("portable page numbers restore from IndexedDB and Front Matter, and setting
     });
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
 
   await expect(page.getByLabel("Show page numbers")).toBeChecked();
   await expect(page.getByLabel("Page number position")).toHaveValue("bottom-right");
@@ -243,9 +243,9 @@ test("portable page numbers restore from IndexedDB and Front Matter, and setting
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__printedPageNumbers)).toEqual(["5", "6"]);
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Saving file…" })).toBeVisible();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await page.getByLabel("Page number start at").fill("9");
   await page.evaluate(() => window.__releasePageNumberWrite?.());
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(1);
@@ -255,16 +255,16 @@ test("portable page numbers restore from IndexedDB and Front Matter, and setting
   expect(saved).toContain("startAt: 5");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__numberedFileWrites?.[1] ?? "")).toContain("startAt: 9");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
 
   await page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" }).uncheck();
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(3);
   expect(await page.evaluate(() => window.__numberedFileWrites?.[2] ?? "")).not.toContain("docmark:");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();

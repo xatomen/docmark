@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import { Button, Dropdown, Label } from "@heroui/react";
+import { ChevronDownIcon } from "@/components/editor/ui-icons";
 import {
   isPickerCancellation,
   pickMarkdownFile,
@@ -24,15 +26,9 @@ export function MarkdownFileActions({
   onSaveAs,
   onError,
 }: MarkdownFileActionsProps) {
-  const menuRef = useRef<HTMLDetailsElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function closeMenu() {
-    menuRef.current?.removeAttribute("open");
-  }
-
   async function openMarkdown() {
-    closeMenu();
     if (!supportsFileSystemOpen()) {
       inputRef.current?.click();
       return;
@@ -49,33 +45,35 @@ export function MarkdownFileActions({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <details ref={menuRef} className="relative">
-        <summary className="cursor-pointer list-none rounded border border-border px-3 py-2 text-sm hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
+    <div className="flex min-w-0 items-center gap-2">
+      <Dropdown>
+        <Button variant="tertiary" size="sm" className="shrink-0 gap-1.5">
           File
-        </summary>
-        <div className="absolute left-0 top-full z-40 mt-2 w-48 rounded-md border border-border bg-background p-1 text-foreground shadow-xl">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => { void openMarkdown(); }}
-            className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-subtle disabled:opacity-50"
-          >Open Markdown…</button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => { closeMenu(); onSave(); }}
-            className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-subtle disabled:opacity-50"
-          >Save</button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => { closeMenu(); onSaveAs(); }}
-            className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-subtle disabled:opacity-50"
-          >Save As…</button>
-        </div>
-      </details>
-      {status && <span role="status" aria-live="polite" title={status} className="max-w-[25vw] truncate text-xs text-muted">{status}</span>}
+          <ChevronDownIcon className="size-3.5 text-muted" />
+        </Button>
+        <Dropdown.Popover className="w-52 rounded-[var(--docmark-radius-overlay)] border border-border bg-overlay text-foreground shadow-[var(--overlay-shadow)]">
+          <Dropdown.Menu disabledKeys={disabled ? ["open", "save", "save-as"] : []} onAction={(action) => {
+            if (action === "open") void openMarkdown();
+            if (action === "save") onSave();
+            if (action === "save-as") onSaveAs();
+          }}>
+            <Dropdown.Item id="open" textValue="Open Markdown…">
+              <Label>Open Markdown…</Label>
+            </Dropdown.Item>
+            <Dropdown.Item id="save" textValue="Save">
+              <Label>Save</Label>
+            </Dropdown.Item>
+            <Dropdown.Item id="save-as" textValue="Save As…">
+              <Label>Save As…</Label>
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown>
+      {status && (
+        <span role="status" aria-live="polite" className="min-w-0 max-w-[min(32vw,18rem)] break-words text-xs leading-4 text-muted">
+          {status}
+        </span>
+      )}
       <input
         ref={inputRef}
         type="file"

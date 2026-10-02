@@ -1,7 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
 export function activeDocumentSummary(page: Page) {
-  return page.locator('summary[aria-label^="Active document:"]');
+  return page.locator('button[aria-label^="Active document:"]');
+}
+
+export async function openFirstDocumentActions(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
 }
 
 export function markdownEditor(page: Page) {
@@ -10,19 +14,21 @@ export function markdownEditor(page: Page) {
 
 export async function renameActiveDocument(page: Page, title: string): Promise<void> {
   await activeDocumentSummary(page).click();
-  await page.getByRole("button", { name: "Rename", exact: true }).first().click();
+  await openFirstDocumentActions(page);
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).first().click();
   await page.getByRole("textbox", { name: "Document title" }).fill(title);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(activeDocumentSummary(page)).toHaveAttribute(
     "aria-label",
     `Active document: ${title}. Open document list`,
   );
-  await activeDocumentSummary(page).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: /Documents/ })).toBeHidden();
 }
 
 export async function createNewDocument(page: Page): Promise<void> {
   await activeDocumentSummary(page).click();
-  await page.getByRole("button", { name: "+ New document" }).click();
+  await page.getByRole("button", { name: "New document", exact: true }).click();
   await expect(markdownEditor(page)).toBeVisible();
 }
 
@@ -54,8 +60,8 @@ export async function chooseLocalMarkdown(
   name: string,
   content: string,
 ): Promise<void> {
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name,
     mimeType: "text/plain",

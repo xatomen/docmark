@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { Button, Dropdown, Label, Popover } from "@heroui/react";
 import type { DocmarkDocumentSummary } from "@/lib/document/model";
+import { CheckIcon, ChevronDownIcon, MoreHorizontalIcon, PlusIcon } from "@/components/editor/ui-icons";
 
 type DocumentSwitcherProps = {
   activeDocumentId: string;
@@ -44,13 +46,9 @@ export function DocumentSwitcher({
   onDuplicate,
   onDelete,
 }: DocumentSwitcherProps) {
-  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-
-  function closeMenu() {
-    detailsRef.current?.removeAttribute("open");
-  }
 
   function submitRename(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
@@ -58,84 +56,124 @@ export function DocumentSwitcher({
     setEditingId(null);
   }
 
+  function handleDocumentAction(action: string | number, document: DocmarkDocumentSummary) {
+    if (action === "rename") {
+      setEditingId(document.id);
+      setDraftTitle(document.title);
+      return;
+    }
+
+    setIsOpen(false);
+    if (action === "duplicate") onDuplicate(document.id);
+    if (action === "delete") onDelete(document.id, document.title);
+  }
+
   return (
-    <details ref={detailsRef} className="relative min-w-0">
-      <summary
+    <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
+      <Button
+        isDisabled={disabled}
+        variant="secondary"
+        size="sm"
         aria-label={`Active document: ${activeTitle}. Open document list`}
-        className="flex max-w-[min(44vw,24rem)] cursor-pointer list-none items-center gap-2 truncate rounded px-2 py-1 text-sm text-foreground outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden"
+        className="min-w-0 max-w-[min(34vw,24rem)] justify-between gap-2"
       >
         <span className="truncate">{activeTitle}</span>
-        <span aria-hidden="true" className="shrink-0 text-muted">▾</span>
-      </summary>
-      <div className="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-md border border-border bg-background p-2 text-foreground shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-2 pb-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">Documents</h2>
-          <button
-            type="button"
-            disabled={disabled || operationsDisabled}
-            onClick={() => { closeMenu(); onNew(); }}
-            className="rounded px-2 py-1 text-xs text-foreground hover:bg-subtle disabled:opacity-50"
-          >
-            + New document
-          </button>
-        </div>
-        <ul className="my-1 max-h-[min(60vh,24rem)] overflow-y-auto">
-          {documents.map((document) => (
-            <li key={document.id} className="rounded px-2 py-2 hover:bg-subtle">
-              {editingId === document.id ? (
-                <form onSubmit={(event) => submitRename(event, document.id)} className="flex gap-1">
-                  <input
-                    autoFocus
-                    disabled={disabled || operationsDisabled}
-                    value={draftTitle}
-                    onChange={(event) => setDraftTitle(event.target.value)}
-                    aria-label="Document title"
-                    className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  />
-                  <button type="submit" disabled={disabled || operationsDisabled} className="rounded px-2 text-xs hover:bg-background disabled:opacity-50">Save</button>
-                  <button type="button" disabled={disabled || operationsDisabled} onClick={() => setEditingId(null)} className="rounded px-2 text-xs hover:bg-background disabled:opacity-50">Cancel</button>
-                </form>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={disabled || (document.id === activeDocumentId && !switchInProgress)}
-                    onClick={() => { closeMenu(); onOpen(document.id); }}
-                    className="flex w-full min-w-0 items-center gap-2 text-left disabled:cursor-default"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm">{document.title}</span>
-                    {document.id === activeDocumentId && <span aria-label="Active" className="text-xs text-accent">✓</span>}
-                  </button>
-                  <div className="mt-1 flex items-center justify-between gap-2 pl-0.5">
-                    <span className="truncate text-[0.6875rem] text-muted">Updated {updatedLabel(document.updatedAt)}</span>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        disabled={disabled || operationsDisabled}
-                        onClick={() => { setEditingId(document.id); setDraftTitle(document.title); }}
-                        className="rounded px-1.5 py-0.5 text-[0.6875rem] text-muted hover:bg-background hover:text-foreground disabled:opacity-50"
-                      >Rename</button>
-                      <button
-                        type="button"
-                        disabled={disabled || operationsDisabled}
-                        onClick={() => { closeMenu(); onDuplicate(document.id); }}
-                        className="rounded px-1.5 py-0.5 text-[0.6875rem] text-muted hover:bg-background hover:text-foreground disabled:opacity-50"
-                      >Duplicate</button>
-                      <button
-                        type="button"
-                        disabled={disabled || operationsDisabled}
-                        onClick={() => { closeMenu(); onDelete(document.id, document.title); }}
-                        className="rounded px-1.5 py-0.5 text-[0.6875rem] text-muted hover:bg-background hover:text-red-700 disabled:opacity-50 dark:hover:text-red-300"
-                      >Delete</button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {documents.length === 0 && <p className="p-3 text-sm text-muted">No documents yet.</p>}
-      </div>
-    </details>
+        <ChevronDownIcon className="size-4 shrink-0 text-muted" />
+      </Button>
+      <Popover.Content
+        placement="bottom start"
+        className="w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-[var(--docmark-radius-overlay)] border border-border bg-overlay p-0 text-foreground shadow-[var(--overlay-shadow)]"
+      >
+        <Popover.Dialog className="w-full p-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
+            <Popover.Heading className="text-sm font-medium">Documents</Popover.Heading>
+            <Button
+              isDisabled={disabled || operationsDisabled}
+              onPress={() => { setIsOpen(false); onNew(); }}
+              variant="tertiary"
+              size="sm"
+              className="shrink-0"
+            >
+              <PlusIcon className="size-4" />
+              New document
+            </Button>
+          </div>
+          <ul aria-label="Documents" className="mt-2 max-h-[min(60vh,26rem)] space-y-1 overflow-y-auto">
+            {documents.map((document) => {
+              const isActive = document.id === activeDocumentId;
+              const rowDisabled = disabled || operationsDisabled;
+
+              return (
+                <li key={document.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 rounded-lg px-1 py-1 hover:bg-subtle">
+                  {editingId === document.id ? (
+                    <form onSubmit={(event) => submitRename(event, document.id)} className="col-span-2 flex min-w-0 items-center gap-1">
+                      <input
+                        autoFocus
+                        disabled={rowDisabled}
+                        value={draftTitle}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        aria-label="Document title"
+                        className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      />
+                      <Button type="submit" isDisabled={rowDisabled} variant="tertiary" size="sm">Save</Button>
+                      <Button type="button" isDisabled={rowDisabled} onPress={() => setEditingId(null)} variant="tertiary" size="sm">Cancel</Button>
+                    </form>
+                  ) : (
+                    <>
+                      <Button
+                        isDisabled={disabled || (isActive && !switchInProgress)}
+                        onPress={() => { setIsOpen(false); onOpen(document.id); }}
+                        variant={isActive ? "secondary" : "ghost"}
+                        size="sm"
+                        aria-current={isActive ? "true" : undefined}
+                        className="col-start-1 row-start-1 min-w-0 justify-start gap-2 text-left"
+                      >
+                        <span className="grid size-4 shrink-0 place-items-center">
+                          {isActive && <CheckIcon className="size-4 text-accent" />}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{document.title}</span>
+                        {isActive && <span className="sr-only">Active</span>}
+                      </Button>
+                      <span className="col-start-1 row-start-2 truncate pl-8 text-[0.6875rem] text-muted">Updated {updatedLabel(document.updatedAt)}</span>
+                      <div className="col-start-2 row-span-2 row-start-1 flex items-center">
+                        <Dropdown>
+                          <Button
+                            isIconOnly
+                            isDisabled={rowDisabled}
+                            variant="tertiary"
+                            size="sm"
+                            aria-label={`Actions for ${document.title}`}
+                            className="shrink-0"
+                          >
+                            <MoreHorizontalIcon className="size-4" />
+                          </Button>
+                          <Dropdown.Popover
+                            placement="bottom end"
+                            className="w-44 rounded-[var(--docmark-radius-overlay)] border border-border bg-overlay text-foreground shadow-[var(--overlay-shadow)]"
+                          >
+                            <Dropdown.Menu onAction={(action) => handleDocumentAction(action, document)}>
+                              <Dropdown.Item id="rename" textValue="Rename">
+                                <Label>Rename</Label>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="duplicate" textValue="Duplicate">
+                                <Label>Duplicate</Label>
+                              </Dropdown.Item>
+                              <Dropdown.Item id="delete" textValue="Delete" variant="danger" className="mt-1 border-t border-border pt-1">
+                                <Label>Delete</Label>
+                              </Dropdown.Item>
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown>
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {documents.length === 0 && <p className="px-2 py-4 text-sm text-muted">No documents yet.</p>}
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
   );
 }

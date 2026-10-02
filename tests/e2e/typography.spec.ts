@@ -96,7 +96,8 @@ test("document typography is shared by measurement and pages, controls paragraph
   await expect(page.getByLabel("Text alignment")).toHaveValue("justify");
 
   await page.getByLabel("Active document: Untitled document. Open document list").click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByLabel("Font family")).toHaveValue("Times New Roman");
   await expect(page.getByLabel("Base font size")).toHaveValue("16");
   await expect(page.getByLabel("Line height")).toHaveValue("2");
@@ -129,8 +130,8 @@ test("portable typography saves with snapshot semantics and stays file-clean whe
     window.showOpenFilePicker = async () => [handle as FileSystemFileHandle];
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
   await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
   await expect(page.getByLabel("Base font size")).toHaveValue("12");
   await expect(page.getByLabel("Line height")).toHaveValue("1.6");
@@ -139,9 +140,9 @@ test("portable typography saves with snapshot semantics and stays file-clean whe
   await expect.poll(() => page.locator(".physical-page .document-content h1").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");
   await page.getByLabel("Base font size").selectOption("14");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Saving file…" })).toBeVisible();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await page.getByLabel("Text alignment").selectOption("justify");
   await page.evaluate(() => window.__releaseTypographyWrite?.());
   await expect.poll(() => page.evaluate(() => window.__typographyWrites?.length)).toBe(1);
@@ -150,13 +151,13 @@ test("portable typography saves with snapshot semantics and stays file-clean whe
   expect(await page.evaluate(() => window.__typographyWrites?.[0] ?? "")).toContain("alignment: center");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__typographyWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__typographyWrites?.[1] ?? "")).toContain("alignment: justify");
   await page.getByLabel("Include Docmark settings in Markdown").uncheck();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__typographyWrites?.length)).toBe(3);
   expect(await page.evaluate(() => window.__typographyWrites?.[2] ?? "")).not.toContain("typography:");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();

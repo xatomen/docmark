@@ -91,8 +91,9 @@ test("cover exclusion is semantic, toggles cleanly, survives cover toggles, relo
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1"]);
 
-  await page.locator('summary[aria-label^="Active document:"]').click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.locator('button[aria-label^="Active document:"]').click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1"]);
@@ -180,9 +181,9 @@ test("portable Front Matter opens, saves, and reloads zero and cover exclusion",
   await expect(visiblePageNumbers(page)).toHaveText(["0"]);
   await expect(page.locator(".docmark-toc-page").first()).toHaveText("0");
 
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const saved = await readFile((await download.path())!, "utf8");
   expect(saved).toContain("custom: keep this");

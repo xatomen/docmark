@@ -148,9 +148,9 @@ test("TOC survives Markdown open, source-only Save, reload, and browser print", 
 
   await expect(page.locator("article .docmark-toc-entry")).toHaveCount(2);
   await expect(markdownEditor(page)).toContainText(":::toc");
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();

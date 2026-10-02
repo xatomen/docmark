@@ -199,9 +199,9 @@ test("Markdown Open, Save, reload, and duplicate preserve Mermaid source and ren
   await waitUntilReady(page);
   await expect(markdownEditor(page)).toContainText("flowchart LR");
 
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();
@@ -211,7 +211,8 @@ test("Markdown Open, Save, reload, and duplicate preserve Mermaid source and ren
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
   await page.getByLabel("Active document: local-diagram. Open document list").click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).first().click();
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
   await expect(markdownEditor(page)).toContainText("flowchart LR");

@@ -137,21 +137,21 @@ test("theme settings use the immutable snapshot semantics of Save", async ({ pag
     window.showOpenFilePicker = async () => [handle as FileSystemFileHandle];
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
   await expect(page.getByLabel("Document theme")).toHaveValue("technical");
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Saving file…" })).toBeVisible();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await page.getByLabel("Document theme").selectOption("minimal");
   await page.evaluate(() => window.__releaseThemeWrite?.());
   await expect.poll(() => page.evaluate(() => window.__themeWrites?.length)).toBe(1);
   expect(await page.evaluate(() => window.__themeWrites?.[0] ?? "")).toContain("theme: technical");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__themeWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__themeWrites?.[1] ?? "")).toContain("theme: minimal");
 });
@@ -194,7 +194,8 @@ test("themes persist across reload, duplicate, and document switching without le
   await expect(page.getByLabel("Document theme")).toHaveValue("technical");
 
   await page.getByLabel("Active document: Technical source. Open document list").click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByLabel("Document theme")).toHaveValue("technical");
   await page.getByLabel("Document theme").selectOption("academic");
   await createNewDocument(page);
@@ -215,9 +216,9 @@ test("theme Front Matter is portable, preserves external metadata, and safely fa
   await expect(page.getByLabel("Document theme")).toHaveValue("academic");
   await expect(page.getByLabel("Include Docmark settings in Markdown")).toBeChecked();
   await page.getByLabel("Document theme").selectOption("minimal");
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
   const { readFile } = await import("node:fs/promises");
@@ -226,9 +227,9 @@ test("theme Front Matter is portable, preserves external metadata, and safely fa
   expect(portable).toContain("owner: Example");
   expect(portable).toContain("theme: minimal");
   await page.getByLabel("Include Docmark settings in Markdown").uncheck();
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const plainDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const plainDownload = await plainDownloadPromise;
   const plainPath = await plainDownload.path();
   const plain = await readFile(plainPath!, "utf8");

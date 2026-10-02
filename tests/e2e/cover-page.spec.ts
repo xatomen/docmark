@@ -61,8 +61,9 @@ test("cover settings persist across reload and duplicate, while TOC uses logical
   await expect(page.getByRole("checkbox", { name: "Enable cover page" })).toBeChecked();
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Physical cover");
 
-  await page.locator('summary[aria-label^="Active document:"]').click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.locator('button[aria-label^="Active document:"]').click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Physical cover");
   await expect(page.locator(".physical-page").first()).toHaveAttribute("data-page-kind", "cover");
 });
@@ -101,9 +102,9 @@ test("portable cover Front Matter opens and saves while OFF leaves ordinary Mark
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Portable report");
   await expect(page.getByRole("textbox", { name: "Cover date" })).toHaveValue("2026-10-02");
   await page.getByRole("textbox", { name: "Cover subtitle" }).fill("Updated subtitle");
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();
@@ -114,9 +115,9 @@ test("portable cover Front Matter opens and saves while OFF leaves ordinary Mark
   expect(saved).toContain("# Body");
 
   await page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" }).uncheck();
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const localDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const localDownload = await localDownloadPromise;
   const localPath = await localDownload.path();
   expect(localPath).not.toBeNull();
@@ -148,20 +149,20 @@ test("portable cover saves use the immutable settings snapshot", async ({ page }
     window.showOpenFilePicker = async () => [handle as FileSystemFileHandle];
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Snapshot A");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Saving file…" })).toBeVisible();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await page.getByRole("textbox", { name: "Cover title" }).fill("Snapshot B");
   await page.evaluate(() => window.__releaseCoverWrite?.());
   await expect.poll(() => page.evaluate(() => window.__coverWrites?.length)).toBe(1);
   expect(await page.evaluate(() => window.__coverWrites?.[0] ?? "")).toContain("title: Snapshot A");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__coverWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__coverWrites?.[1] ?? "")).toContain("title: Snapshot B");
 });

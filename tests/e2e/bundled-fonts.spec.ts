@@ -100,7 +100,8 @@ test("Montserrat survives IndexedDB reload and document duplication", async ({ p
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");
 
   await page.getByLabel("Active document: Untitled document. Open document list").click();
-  await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await page.getByRole("button", { name: /^Actions for / }).first().click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");

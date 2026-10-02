@@ -17,9 +17,9 @@ declare global {
 }
 
 async function downloadCurrentMarkdown(page: import("@playwright/test").Page): Promise<string> {
-  await page.getByText("File", { exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).not.toBeNull();
@@ -56,16 +56,16 @@ test("settings stay file-clean while off, then opt a plain file into v1 portabil
     window.showOpenFilePicker = async () => [handle as FileSystemFileHandle];
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
 
   await page.getByLabel("Page size").selectOption("letter");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
   await page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" }).check();
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__plainFileOutput)).toContain("version: 1");
   await expect.poll(() => page.evaluate(() => window.__plainFileOutput)).toContain("size: Letter");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
@@ -164,8 +164,8 @@ test("Save tracks portable settings snapshots and a duplicate gets its own file 
     };
   }, source);
   await page.goto("/editor");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Open Markdown…" }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
 
   await expect(page.getByLabel("Page size")).toHaveValue("letter");
   await expect(page.getByLabel("Orientation")).toHaveValue("landscape");
@@ -173,9 +173,9 @@ test("Save tracks portable settings snapshots and a duplicate gets its own file 
   await page.getByLabel("Page size").selectOption("a4");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Saving file…" })).toBeVisible();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await page.getByLabel("Orientation").selectOption("portrait");
   await page.evaluate(() => window.__releaseMarkdownWrite?.());
   await expect.poll(() => page.evaluate(() => window.__markdownFileWrites?.length)).toBe(1);
@@ -184,8 +184,8 @@ test("Save tracks portable settings snapshots and a duplicate gets its own file 
   expect(firstSnapshot).toContain("orientation: landscape");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__markdownFileWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__markdownFileWrites?.[1] ?? "")).toContain("orientation: portrait");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
@@ -193,24 +193,25 @@ test("Save tracks portable settings snapshots and a duplicate gets its own file 
   const portability = page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" });
   await portability.uncheck();
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__markdownFileWrites?.length)).toBe(3);
   const withoutDocmark = await page.evaluate(() => window.__markdownFileWrites?.[2] ?? "");
   expect(withoutDocmark).not.toContain("docmark:");
   expect(withoutDocmark).toContain("title: External Report Title");
 
   await portability.check();
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__markdownFileWrites?.length)).toBe(4);
   await activeDocumentSummary(page).click();
-  await page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "portable-report Active", exact: true }) })
-    .getByRole("button", { name: "Duplicate", exact: true }).click();
+  const portableReportRow = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "portable-report Active", exact: true }) });
+  await portableReportRow.getByRole("button", { name: /^Actions for / }).click();
+  await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" })).toBeChecked();
   await expect(page.getByLabel("Page size")).toHaveValue("a4");
-  await page.getByText("File", { exact: true }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__saveAsNames?.length)).toBe(1);
   await expect.poll(() => page.evaluate(() => window.__saveAsNames?.[0])).toBe("portable-report-copy.md");
   const duplicateFile = await page.evaluate(() => window.__saveAsWrites?.["portable-report-copy.md"] ?? "");

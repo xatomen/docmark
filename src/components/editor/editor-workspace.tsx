@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button, Tooltip } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircleIcon, CheckIcon } from "@/components/editor/ui-icons";
 import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
 import { DocumentSwitcher } from "@/components/editor/document-switcher";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
@@ -818,8 +819,8 @@ export function EditorWorkspace() {
 
   return (
     <main className="docmark-app flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-      <header className="app-header flex h-16 shrink-0 items-center justify-between border-b border-border px-5 sm:px-8">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+      <header className="app-header flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-surface px-3 py-2 sm:h-16 sm:flex-nowrap sm:px-5 sm:py-0 lg:px-8">
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1 sm:gap-3 lg:gap-5">
           <Link href="/" className="shrink-0 font-mono text-lg font-semibold tracking-tight">
             docmark<span className="text-accent">.</span>
           </Link>
@@ -839,8 +840,6 @@ export function EditorWorkspace() {
               onDelete={removeDocument}
             />
           ) : <span className="text-sm text-muted">Documents</span>}
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
           <MarkdownFileActions
             disabled={fileOperationBusy}
             status={fileStatusMessage}
@@ -849,13 +848,19 @@ export function EditorWorkspace() {
             onSaveAs={saveMarkdownAs}
             onError={setFileOperationNotice}
           />
+        </div>
+        <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-3">
           <span
             role="status"
             aria-live="polite"
-            className={`hidden text-xs sm:inline ${persistenceStatus === "error" ? "text-amber-700 dark:text-amber-300" : "text-muted"}`}
-            title={documentError ?? undefined}
+            className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-4 sm:flex-initial sm:max-w-[min(30vw,24rem)] ${persistenceStatus === "error" ? "text-red-700 dark:text-red-300" : "text-muted"}`}
           >
-            {documentError ? "Document operation failed" : statusText[persistenceStatus]}
+            {persistenceStatus === "saved" && <CheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />}
+            {persistenceStatus === "error" && <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />}
+            <span className={persistenceStatus === "error" ? "break-words" : "truncate"}>
+              {statusText[persistenceStatus]}
+              {persistenceStatus === "error" && documentError ? `: ${documentError}` : ""}
+            </span>
           </span>
           {printError && <span role="status" className="text-xs text-red-700 dark:text-red-300">Printing is unavailable in this browser.</span>}
           <Tooltip delay={500}>
