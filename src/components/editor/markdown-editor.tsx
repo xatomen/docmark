@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { useEffect, useRef, useState } from "react";
+import { history, historyKeymap, indentWithTab, isolateHistory } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { tags } from "@lezer/highlight";
 import {
@@ -9,8 +9,10 @@ import {
   indentUnit,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, placeholder } from "@codemirror/view";
+import { EditorSelection, EditorState } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, placeholder } from "@codemirror/view";
+import { createBlockDirectiveInsertion, PAGE_BREAK_DIRECTIVE, TOC_DIRECTIVE } from "@/lib/editor/block-directive";
+import { isStructuralInsertionBlocked } from "@/lib/editor/editor-context";
 
 type MarkdownEditorProps = {
   value: string;
@@ -53,7 +55,17 @@ const editorTheme = EditorView.theme(
       backgroundColor: "color-mix(in srgb, var(--subtle) 70%, transparent)",
     },
     ".cm-gutters": {
-      display: "none",
+      backgroundColor: "var(--subtle)",
+      borderRight: "1px solid var(--border)",
+    },
+    ".cm-lineNumbers": {
+      color: "var(--muted)",
+      minWidth: "2.75rem",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      padding: "0 0.65rem 0 0.4rem",
+      textAlign: "right",
+      color: "var(--muted)",
     },
     ".cm-placeholder": {
       color: "var(--muted)",
@@ -78,10 +90,45 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const [copyFeedback, setCopyFeedback] = useState("");
+  const [structuralInsertionBlocked, setStructuralInsertionBlocked] = useState(false);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => () => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  async function copyMarkdown() {
+    try {
+      const source = viewRef.current?.state.doc.toString() ?? value;
+      await navigator.clipboard.writeText(source);
+      setCopyFeedback("Copied Markdown");
+    } catch {
+      setCopyFeedback("Copy failed. Clipboard access is unavailable.");
+    }
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setCopyFeedback(""), 2400);
+  }
+
+  function insertDirective(directive: string) {
+    const view = viewRef.current;
+    if (!view) return;
+    const selection = view.state.selection.main;
+    if (isStructuralInsertionBlocked(view.state, selection.to)) return;
+    const source = view.state.doc.toString();
+    const insertion = createBlockDirectiveInsertion(source, selection.from, selection.to, directive);
+    view.dispatch({
+      changes: { from: insertion.from, insert: insertion.insert },
+      selection: EditorSelection.cursor(insertion.from + insertion.cursor),
+      scrollIntoView: true,
+      annotations: isolateHistory.of("full"),
+    });
+    view.focus();
+  }
 
   useEffect(() => {
     const host = hostRef.current;
@@ -91,6 +138,7 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
       doc: value,
       extensions: [
         markdown(),
+        lineNumbers(),
         syntaxHighlighting(docmarkHighlightStyle),
         history(),
         keymap.of([...historyKeymap, indentWithTab]),
@@ -108,12 +156,18 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
           if (update.docChanged) {
             onChangeRef.current(update.state.doc.toString());
           }
+          if (update.docChanged || update.selectionSet) {
+            const position = update.state.selection.main.to;
+            const blocked = isStructuralInsertionBlocked(update.state, position);
+            setStructuralInsertionBlocked((current) => current === blocked ? current : blocked);
+          }
         }),
       ],
     });
 
     const view = new EditorView({ state, parent: host });
     viewRef.current = view;
+    setStructuralInsertionBlocked(isStructuralInsertionBlocked(state, state.selection.main.to));
 
     return () => {
       view.destroy();
@@ -136,5 +190,27 @@ export function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
     }
   }, [value]);
 
-  return <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden" />;
+  const buttonClassName = "rounded border border-border px-2.5 py-1.5 text-xs text-foreground enabled:hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-50";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="editor-toolbar flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => void copyMarkdown()} className={buttonClassName} title="Copy the current Markdown source">
+            Copy Markdown
+          </button>
+          <button type="button" aria-label="Insert table of contents" onClick={() => insertDirective(TOC_DIRECTIVE)} disabled={structuralInsertionBlocked} className={buttonClassName} title="Insert a table of contents directive at the cursor">
+            Insert TOC
+          </button>
+          <button type="button" aria-label="Insert page break" onClick={() => insertDirective(PAGE_BREAK_DIRECTIVE)} disabled={structuralInsertionBlocked} className={buttonClassName} title="Insert a page break directive at the cursor">
+            Page Break
+          </button>
+        </div>
+        <span role="status" aria-live="polite" className="min-h-4 text-xs text-muted">
+          {copyFeedback || (structuralInsertionBlocked ? "Block actions are unavailable in code or Front Matter." : "")}
+        </span>
+      </div>
+      <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden" />
+    </div>
+  );
 }
