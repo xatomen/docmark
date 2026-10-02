@@ -11,10 +11,15 @@ import {
   getPageDimensions,
   isPageNumberPosition,
   isDecorationAlignment,
+  isDocumentFontFamily,
+  isDocumentFontSize,
+  isDocumentLineHeight,
+  isDocumentTextAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
   type HeaderFooterSettings,
+  type TypographySettings,
   type PageMargins,
 } from "@/lib/document/settings";
 
@@ -151,7 +156,19 @@ function readSettings(docmark: Record<string, unknown>): {
     if (Object.hasOwn(value, "alignment") && !isDecorationAlignment(value.alignment)) invalid = true;
     return { enabled, text, alignment };
   };
-  return { settings: { pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer") }, invalid };
+  if (Object.hasOwn(docmark, "typography") && !isRecord(docmark.typography)) invalid = true;
+  const rawTypography = isRecord(docmark.typography) ? docmark.typography : {};
+  const typography: TypographySettings = {
+    fontFamily: isDocumentFontFamily(rawTypography.fontFamily) ? rawTypography.fontFamily : defaults.typography.fontFamily,
+    fontSize: isDocumentFontSize(rawTypography.fontSize) ? rawTypography.fontSize : defaults.typography.fontSize,
+    lineHeight: isDocumentLineHeight(rawTypography.lineHeight) ? rawTypography.lineHeight : defaults.typography.lineHeight,
+    alignment: isDocumentTextAlignment(rawTypography.alignment) ? rawTypography.alignment : defaults.typography.alignment,
+  };
+  if (Object.hasOwn(rawTypography, "fontFamily") && !isDocumentFontFamily(rawTypography.fontFamily)) invalid = true;
+  if (Object.hasOwn(rawTypography, "fontSize") && !isDocumentFontSize(rawTypography.fontSize)) invalid = true;
+  if (Object.hasOwn(rawTypography, "lineHeight") && !isDocumentLineHeight(rawTypography.lineHeight)) invalid = true;
+  if (Object.hasOwn(rawTypography, "alignment") && !isDocumentTextAlignment(rawTypography.alignment)) invalid = true;
+  return { settings: { pageSize, orientation, margins, pageNumbers, header: readDecoration("header"), footer: readDecoration("footer"), typography }, invalid };
 }
 
 export function getPortableMarkdownWarning(metadata: PortableMarkdownMetadata): string | null {
@@ -283,6 +300,7 @@ function getDocumentSnapshot(document: Pick<DocmarkDocument, "settings">) {
     },
     header: { ...document.settings.header },
     footer: { ...document.settings.footer },
+    typography: { ...document.settings.typography },
   };
 }
 
@@ -301,7 +319,11 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.header.alignment === right.header.alignment &&
     left.footer.enabled === right.footer.enabled &&
     left.footer.text === right.footer.text &&
-    left.footer.alignment === right.footer.alignment;
+    left.footer.alignment === right.footer.alignment &&
+    left.typography.fontFamily === right.typography.fontFamily &&
+    left.typography.fontSize === right.typography.fontSize &&
+    left.typography.lineHeight === right.typography.lineHeight &&
+    left.typography.alignment === right.typography.alignment;
 }
 
 function getYamlMap(document: ReturnType<typeof parseDocument>, key: string): YAMLMap {
@@ -338,6 +360,11 @@ function updateDocmarkNamespace(
     decoration.set("text", settings[key].text);
     decoration.set("alignment", settings[key].alignment);
   }
+  const typography = getYamlMapFromMap(yamlDocument, docmark, "typography");
+  typography.set("fontFamily", settings.typography.fontFamily);
+  typography.set("fontSize", settings.typography.fontSize);
+  typography.set("lineHeight", settings.typography.lineHeight);
+  typography.set("alignment", settings.typography.alignment);
 }
 
 function getYamlMapFromMap(

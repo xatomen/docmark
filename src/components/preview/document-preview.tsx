@@ -5,6 +5,7 @@ import { renderMarkdown } from "@/lib/markdown/render-markdown";
 import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
 import { PageDecorations } from "@/components/document/page-decorations";
 import {
+  getDocumentFontStack,
   getPageDimensions,
   type DocumentSettings,
 } from "@/lib/document/settings";
@@ -131,6 +132,10 @@ export function DocumentPreview({
     settings.margins.right,
     settings.margins.bottom,
     settings.margins.left,
+    settings.typography.fontFamily,
+    settings.typography.fontSize,
+    settings.typography.lineHeight,
+    settings.typography.alignment,
     onPaginationReady,
     renderError,
   ]);
@@ -161,16 +166,24 @@ export function DocumentPreview({
     };
   }, []);
 
-  const pageStyle: CSSProperties = {
+  const typographyStyle = {
+    "--doc-font-family": getDocumentFontStack(settings.typography.fontFamily),
+    "--doc-font-size": `${settings.typography.fontSize}pt`,
+    "--doc-line-height": settings.typography.lineHeight,
+    "--doc-text-align": settings.typography.alignment,
+  } as CSSProperties;
+  const pageStyle = {
     width: `${dimensions.widthMm}mm`,
     height: `${dimensions.heightMm}mm`,
     padding: `${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm`,
     marginLeft: `-${dimensions.widthMm / 2}mm`,
     transform: `scale(${scale})`,
     transformOrigin: "top center",
-  };
+    ...typographyStyle,
+  } as CSSProperties;
   const contentStyle = {
     "--document-content-height": `${contentHeightMm}mm`,
+    ...typographyStyle,
   } as CSSProperties;
   const marginSummary = `${settings.margins.top}/${settings.margins.right}/${settings.margins.bottom}/${settings.margins.left} mm`;
   const printPageStyle = `@page { size: ${dimensions.widthMm}mm ${dimensions.heightMm}mm; margin: 0; }`;

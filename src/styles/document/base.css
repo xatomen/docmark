@@ -1,7 +1,9 @@
 .document-theme {
   color: #282a27;
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-family: var(--doc-font-family, Arial, Helvetica, sans-serif);
+  font-size: var(--doc-font-size, 11pt);
+  line-height: var(--doc-line-height, 1.75);
+  text-align: left;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -22,28 +24,29 @@
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.025em;
+  text-align: left;
 }
 
 .document-theme h1 {
   margin: 0 0 1.25rem;
-  font-size: 2rem;
+  font-size: 2.133333em;
 }
 
 .document-theme h2 {
   margin: 2rem 0 0.75rem;
   padding-bottom: 0.4rem;
   border-bottom: 1px solid #dedfd9;
-  font-size: 1.375rem;
+  font-size: 1.466667em;
 }
 
 .document-theme h3 {
   margin: 1.5rem 0 0.5rem;
-  font-size: 1.125rem;
+  font-size: 1.2em;
 }
 
 .document-theme h4 {
   margin: 1.25rem 0 0.5rem;
-  font-size: 1rem;
+  font-size: 1.066667em;
 }
 
 .document-theme p,
@@ -55,6 +58,10 @@
   margin: 0 0 1rem;
 }
 
+.document-theme p {
+  text-align: var(--doc-text-align, left);
+}
+
 .document-theme a {
   color: #456c49;
   text-decoration: underline;
@@ -64,6 +71,7 @@
 .document-theme ul,
 .document-theme ol {
   padding-left: 1.5rem;
+  text-align: left;
 }
 
 .document-theme ul {
@@ -98,6 +106,7 @@
   font-size: 0.875em;
   overflow-wrap: anywhere;
   white-space: inherit;
+  text-align: left;
 }
 
 .document-theme pre {
@@ -112,9 +121,10 @@
   background: #f5f5f2;
   padding: 1rem;
   font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 0.8125rem;
+  font-size: 0.866667em;
   line-height: 1.65;
   white-space: pre-wrap;
+  text-align: left;
 }
 
 .document-theme pre code {
@@ -133,7 +143,8 @@
   table-layout: auto;
   overflow-wrap: anywhere;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.933333em;
+  text-align: left;
 }
 
 .document-theme table:has(> thead > tr > :nth-child(7)) {

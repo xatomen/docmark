@@ -73,6 +73,7 @@ describe("IndexedDB document persistence", () => {
         pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
         header: { enabled: true, text: "Header", alignment: "center" },
         footer: { enabled: true, text: "Footer", alignment: "right" },
+        typography: { fontFamily: "Georgia", fontSize: 14, lineHeight: 1.6, alignment: "justify" },
       },
     );
 

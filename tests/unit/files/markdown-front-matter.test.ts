@@ -88,6 +88,7 @@ describe("portable Markdown front matter", () => {
       pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
+      typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },
     });
     expect(parsed.markdown).toBe("# Report");
     expect(parsed.portableMarkdown.includeDocmarkSettings).toBe(true);
@@ -254,6 +255,30 @@ describe("portable Markdown front matter", () => {
     expect(invalid.portableMarkdown.status).toBe("invalid-settings");
   });
 
+  it("parses, validates, and serializes typography in v1 while preserving unknown settings", () => {
+    const source = [
+      "---", "docmark:", "  version: 1", "  typography:", "    fontFamily: Georgia",
+      "    fontSize: 12", "    lineHeight: 1.6", "    alignment: justify", "    futureKerning: optical",
+      "---", "# Body",
+    ].join("\n");
+    const parsed = parseMarkdownFile(source);
+    expect(parsed.settings.typography).toEqual({ fontFamily: "Georgia", fontSize: 12, lineHeight: 1.6, alignment: "justify" });
+    const document = asDocument(source);
+    document.settings.typography.fontSize = 14;
+    const saved = serializeMarkdownFile(document);
+    expect(saved).toContain("futureKerning: optical");
+    expect(saved).toContain("fontSize: 14");
+    expect(saved).toContain("version: 1");
+
+    const partial = parseMarkdownFile("---\ndocmark:\n  version: 1\n  typography:\n    fontFamily: Georgia\n    alignment: right\n---\n# Partial");
+    expect(partial.settings.typography).toEqual({ ...DEFAULT_DOCUMENT_SETTINGS.typography, fontFamily: "Georgia", alignment: "right" });
+    const invalid = parseMarkdownFile("---\ndocmark:\n  version: 1\n  typography:\n    fontFamily: Comic Sans Banana\n    fontSize: huge\n    lineHeight: -100\n    alignment: diagonal\n---\n# Invalid");
+    expect(invalid.settings.typography).toEqual(DEFAULT_DOCUMENT_SETTINGS.typography);
+    expect(invalid.portableMarkdown.status).toBe("invalid-settings");
+    document.portableMarkdown.includeDocmarkSettings = false;
+    expect(serializeMarkdownFile(document)).not.toContain("typography:");
+  });
+
   it.each([
     ["missing version", "docmark:\n  page:\n    size: Letter", "missing-version"],
     ["future version", "docmark:\n  version: 99\n  futuristic: true", "unsupported-version"],
@@ -289,6 +314,7 @@ describe("portable Markdown front matter", () => {
       pageNumbers: { enabled: false, position: "bottom-center", startAt: 1 },
       header: { enabled: false, text: "", alignment: "left" },
       footer: { enabled: false, text: "", alignment: "left" },
+      typography: { ...DEFAULT_DOCUMENT_SETTINGS.typography },
     };
     const portable = serializeMarkdownFile(document);
 

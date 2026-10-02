@@ -116,6 +116,20 @@ The **Include Docmark settings in Markdown** option is off for new and ordinary 
 
 Page numbers are optional and default to off. They are physical page decorations, so enabling them does not add Markdown or change pagination. Supported positions are bottom-left (aligned with the content area's left edge), bottom-center (centered on the physical page), and bottom-right (aligned with the content area's right edge). Vertically, the number is centered within the bottom margin when space allows and remains safely inset from the physical page edge for very small margins. `startAt` is a positive integer. Numbers are shared by preview and browser print/PDF, scale with the preview, and are saved in IndexedDB. When portable settings are enabled, the same settings are stored under `docmark.pageNumbers`; otherwise they stay local to the browser document.
 
+Document typography is configurable with a local font stack, base size (9, 10, 11, 12, 14, or 16 pt), line height (1.2, 1.4, 1.5, 1.6, 1.75, 1.8, or 2), and paragraph alignment (left, center, right, or justify). The available stacks are Arial, Helvetica, Georgia, Times New Roman, and Courier New with browser-safe local fallbacks; the selected face depends on fonts installed on the device. No font is downloaded. Typography is shared by measurement, Preview, and Print/PDF, so changing it can change page count. Headings, lists, tables, and code retain their structural alignment; code stays monospace. Settings persist in IndexedDB and are written under `docmark.typography` only while portable metadata is enabled.
+
+```yaml
+---
+docmark:
+  version: 1
+  typography:
+    fontFamily: Georgia
+    fontSize: 11
+    lineHeight: 1.5
+    alignment: justify
+---
+```
+
 Optional Headers and Footers are plain text physical page decorations, disabled by default. Each can be aligned left, center, or right independently. Text is displayed literally (including characters such as `<script>` and `{page}`), supports line breaks, and wraps inside the page. They appear in Preview and the same browser Print/PDF page DOM, persist in IndexedDB, and do not add Markdown or affect pagination. Footer and page numbers use left/center/right slots; when both request the same slot they stack vertically. Portable settings store them under `docmark.header` and `docmark.footer` when **Include Docmark settings in Markdown** is on.
 
 ```yaml

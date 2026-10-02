@@ -4,6 +4,10 @@ import {
   getPageDimensions,
   isPageNumberPosition,
   isDecorationAlignment,
+  isDocumentFontFamily,
+  isDocumentFontSize,
+  isDocumentLineHeight,
+  isDocumentTextAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
@@ -84,6 +88,7 @@ function copySettings(settings: DocumentSettings): DocumentSettings {
     pageNumbers: { ...settings.pageNumbers },
     header: { ...settings.header },
     footer: { ...settings.footer },
+    typography: { ...settings.typography },
   };
 }
 
@@ -170,8 +175,23 @@ function normalizeSettings(value: unknown): DocumentSettings {
       alignment: isDecorationAlignment(raw.alignment) ? raw.alignment : fallback.alignment,
     };
   };
+  const rawTypography = isRecord(source.typography) ? source.typography : {};
+  const typography = {
+    fontFamily: isDocumentFontFamily(rawTypography.fontFamily)
+      ? rawTypography.fontFamily
+      : defaults.typography.fontFamily,
+    fontSize: isDocumentFontSize(rawTypography.fontSize)
+      ? rawTypography.fontSize
+      : defaults.typography.fontSize,
+    lineHeight: isDocumentLineHeight(rawTypography.lineHeight)
+      ? rawTypography.lineHeight
+      : defaults.typography.lineHeight,
+    alignment: isDocumentTextAlignment(rawTypography.alignment)
+      ? rawTypography.alignment
+      : defaults.typography.alignment,
+  };
 
-  return { pageSize, orientation, margins, pageNumbers, header: normalizeDecoration("header"), footer: normalizeDecoration("footer") };
+  return { pageSize, orientation, margins, pageNumbers, header: normalizeDecoration("header"), footer: normalizeDecoration("footer"), typography };
 }
 
 /** Build a document on the client; call only after browser initialization. */

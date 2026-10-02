@@ -69,7 +69,7 @@ DocumentSettings ─────────────────────
                                                                                  └→ Print Layout → Browser Print Engine → Save as PDF
 ```
 
-`DocumentSettings` includes optional page-number settings (`enabled`, bottom position, and positive-integer `startAt`). They follow the same React and IndexedDB path as physical page settings. Page numbers are serialized into Front Matter only while portable metadata is enabled.
+`DocumentSettings` includes optional page-number settings (`enabled`, bottom position, and positive-integer `startAt`), Header/Footer text and alignment, and document typography (`fontFamily`, `fontSize`, `lineHeight`, `alignment`). They follow the same React and IndexedDB path as physical page settings. Page decorations and typography are serialized into Front Matter only while portable metadata is enabled.
 
 ## Markdown data flow
 
@@ -187,7 +187,25 @@ The `lib/markdown` pipeline is asynchronous, local to the browser during editing
 
 `lib/document/settings` owns the physical page settings independently of Markdown: A4 (210 × 297 mm) or Letter (215.9 × 279.4 mm), portrait or landscape orientation, and top/right/bottom/left margins in millimeters. `getPageDimensions` centralizes the page dimensions and swaps width and height for landscape orientation.
 
-`DocumentPreview` combines sanitized HTML with these settings and the M3.2 pagination engine. The engine receives already-rendered DOM, never Markdown. It computes the available content box from the shared physical dimensions and margins, then measures fragments in an offscreen layout layer with the same width, document theme, typography, and spacing as the visible page content. The layer remains in browser layout, is hidden visually, and is marked `aria-hidden` and inert.
+`DocumentPreview` combines sanitized HTML with these settings and the M3.2 pagination engine. The engine receives already-rendered DOM, never Markdown. It computes the available content box from the shared physical dimensions and margins, then measures fragments in an offscreen layout layer with the same width, document theme, typography, and spacing as the visible page content. The layer remains in browser layout, is hidden visually, and is marked `aria-hidden` and inert. Typography values are scoped as CSS variables to document rendering surfaces; controls and application UI do not inherit them. A single set of shared document styles consumes those variables in both measurement and visible content.
+
+```text
+Typography Settings
+        │
+        ▼
+Shared Document Style
+        ├───────────────┐
+        ▼               ▼
+Measurement DOM    Visible Pages
+        │               │
+        ▼               ▼
+Pagination          Preview
+                        │
+                        ▼
+                     Print/PDF
+```
+
+Typography settings participate in pagination measurement. Font family, base size, line height, and paragraph alignment invalidate pagination; generation guards discard stale work after rapid changes. By contrast, PageDecorations do not participate in pagination measurement. Font stacks contain only local/system fallbacks; no font requests are made. Paragraphs (including blockquote paragraphs) receive body alignment, while headings, lists, table cells, and code stay left-aligned. Code keeps a monospace stack. Decorations inherit the selected family but retain their own alignment and compact 9 pt number size.
 
 Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer:
 
@@ -226,7 +244,7 @@ Pagination Engine
 
 This composition boundary is intended to support future headers and footers without changing the Pagination Engine.
 
-The pagination pass is synchronous after browser font readiness. It uses no polling and does not observe its own output. A generation counter and effect cleanup discard stale work after content or settings change. Markdown rendering depends only on Markdown; page size, orientation, and margins trigger pagination without recreating CodeMirror or rerunning the Markdown pipeline. Viewport width is a separate `ResizeObserver` path that changes only the shared visual scale and cannot change page count.
+The pagination pass is synchronous after browser font readiness. It uses no polling and does not observe its own output. A generation counter and effect cleanup discard stale work after content or layout typography changes. Markdown rendering depends only on Markdown; page size, orientation, margins, and typography trigger pagination without recreating CodeMirror or rerunning the Markdown pipeline. Page number and Header/Footer changes do not invalidate pagination. Viewport width is a separate `ResizeObserver` path that changes only the shared visual scale and cannot change page count.
 
 `lib/document/pagination` returns stable page IDs and rendered fragments. Blocks that fit stay together; lists are grouped at list-item boundaries, tables are grouped at row boundaries, and long text-bearing blocks are split with DOM Range fragments that preserve valid nested HTML. Table continuations repeat `<thead>` when present. A heading that would be left at the bottom of a page moves with following content when that content fits. Manual page-break markers always end the current page and can intentionally produce blank pages at the start, between consecutive markers, or at the end. An empty document produces one blank page.
 

@@ -101,6 +101,7 @@ function captureMarkdownFileSnapshot(document: DocmarkDocument): MarkdownFileSna
       pageNumbers: { ...document.settings.pageNumbers },
       header: { ...document.settings.header },
       footer: { ...document.settings.footer },
+      typography: { ...document.settings.typography },
     },
     portableMarkdown: { ...document.portableMarkdown },
   };
@@ -122,7 +123,11 @@ function sameSettings(left: DocumentSettings, right: DocumentSettings): boolean 
     left.header.alignment === right.header.alignment &&
     left.footer.enabled === right.footer.enabled &&
     left.footer.text === right.footer.text &&
-    left.footer.alignment === right.footer.alignment
+    left.footer.alignment === right.footer.alignment &&
+    left.typography.fontFamily === right.typography.fontFamily &&
+    left.typography.fontSize === right.typography.fontSize &&
+    left.typography.lineHeight === right.typography.lineHeight &&
+    left.typography.alignment === right.typography.alignment
   );
 }
 
@@ -132,7 +137,11 @@ function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolea
     left.margins.top === right.margins.top &&
     left.margins.right === right.margins.right &&
     left.margins.bottom === right.margins.bottom &&
-    left.margins.left === right.margins.left;
+    left.margins.left === right.margins.left &&
+    left.typography.fontFamily === right.typography.fontFamily &&
+    left.typography.fontSize === right.typography.fontSize &&
+    left.typography.lineHeight === right.typography.lineHeight &&
+    left.typography.alignment === right.typography.alignment;
 }
 
 function normalizeTitle(title: string): string {

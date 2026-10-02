@@ -36,7 +36,7 @@
   z-index: 1;
   inset: 0;
   color: #686c64;
-  font-family: inherit;
+  font-family: var(--doc-font-family, inherit);
   pointer-events: none;
 }
 

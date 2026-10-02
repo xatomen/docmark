@@ -28,6 +28,7 @@ describe("DocmarkDocument model", () => {
       pageNumbers: { enabled: true, position: "bottom-right", startAt: 5 },
       header: { enabled: true, text: "Header", alignment: "center" },
       footer: { enabled: true, text: "Footer", alignment: "right" },
+      typography: { fontFamily: "Georgia", fontSize: 14, lineHeight: 1.6, alignment: "justify" },
     }, "Quarterly report");
     source.createdAt = "2000-01-01T00:00:00.000Z";
     source.updatedAt = "2000-01-02T00:00:00.000Z";
@@ -54,6 +55,8 @@ describe("DocmarkDocument model", () => {
     expect(duplicate.settings.header).not.toBe(source.settings.header);
     expect(duplicate.settings.footer).toEqual(source.settings.footer);
     expect(duplicate.settings.footer).not.toBe(source.settings.footer);
+    expect(duplicate.settings.typography).toEqual(source.settings.typography);
+    expect(duplicate.settings.typography).not.toBe(source.settings.typography);
     expect(duplicate.portableMarkdown).toEqual(source.portableMarkdown);
     expect(duplicate.portableMarkdown).not.toBe(source.portableMarkdown);
     expect("fileHandle" in duplicate).toBe(false);
@@ -111,5 +114,16 @@ describe("DocmarkDocument model", () => {
     });
     expect(malformed?.settings.header).toEqual({ enabled: true, text: "", alignment: "left" });
     expect(malformed?.settings.footer).toEqual({ enabled: false, text: "safe", alignment: "right" });
+  });
+
+  it("normalizes invalid typography fields independently and defaults records from before M6.4", () => {
+    const now = "2024-01-02T00:00:00.000Z";
+    const old = normalizeStoredDocument({ id: "old-typography", title: "Old", markdown: "", createdAt: now, updatedAt: now });
+    expect(old?.settings.typography).toEqual(DEFAULT_DOCUMENT_SETTINGS.typography);
+    const malformed = normalizeStoredDocument({
+      id: "invalid-typography", title: "Invalid", markdown: "", createdAt: now, updatedAt: now,
+      settings: { typography: { fontFamily: "Comic Sans Banana", fontSize: 12.5, lineHeight: -100, alignment: "diagonal" } },
+    });
+    expect(malformed?.settings.typography).toEqual(DEFAULT_DOCUMENT_SETTINGS.typography);
   });
 });

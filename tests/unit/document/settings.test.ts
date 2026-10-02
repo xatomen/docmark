@@ -5,12 +5,31 @@ import {
   getPageNumber,
   isPageNumberPosition,
   isDecorationAlignment,
+  isDocumentFontFamily,
+  isDocumentFontSize,
+  isDocumentLineHeight,
+  isDocumentTextAlignment,
+  DOCUMENT_FONT_FAMILIES,
+  DOCUMENT_FONT_SIZES,
+  DOCUMENT_LINE_HEIGHTS,
+  DOCUMENT_TEXT_ALIGNMENTS,
   isValidPageNumberStartAt,
   DEFAULT_DOCUMENT_SETTINGS,
   type PageSize,
 } from "@/lib/document/settings";
 
 describe("physical page settings", () => {
+  it("defines closed, validated typography options and defaults matching the current document styles", () => {
+    expect(DEFAULT_DOCUMENT_SETTINGS.typography).toEqual({ fontFamily: "Arial", fontSize: 11, lineHeight: 1.75, alignment: "left" });
+    expect(DOCUMENT_FONT_FAMILIES.every(isDocumentFontFamily)).toBe(true);
+    expect(DOCUMENT_FONT_SIZES.every(isDocumentFontSize)).toBe(true);
+    expect(DOCUMENT_LINE_HEIGHTS.every(isDocumentLineHeight)).toBe(true);
+    expect(DOCUMENT_TEXT_ALIGNMENTS.every(isDocumentTextAlignment)).toBe(true);
+    expect(isDocumentFontFamily("Comic Sans Banana")).toBe(false);
+    expect(isDocumentFontSize(10.5)).toBe(false);
+    expect(isDocumentLineHeight(-1)).toBe(false);
+    expect(isDocumentTextAlignment("diagonal")).toBe(false);
+  });
   it("defaults headers and footers off with empty left-aligned text", () => {
     expect(DEFAULT_DOCUMENT_SETTINGS.header).toEqual({ enabled: false, text: "", alignment: "left" });
     expect(DEFAULT_DOCUMENT_SETTINGS.footer).toEqual({ enabled: false, text: "", alignment: "left" });

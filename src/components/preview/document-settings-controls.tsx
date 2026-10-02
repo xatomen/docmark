@@ -6,6 +6,14 @@ import {
   getPageDimensions,
   isPageNumberPosition,
   isDecorationAlignment,
+  DOCUMENT_FONT_FAMILIES,
+  DOCUMENT_FONT_SIZES,
+  DOCUMENT_LINE_HEIGHTS,
+  DOCUMENT_TEXT_ALIGNMENTS,
+  isDocumentFontFamily,
+  isDocumentFontSize,
+  isDocumentLineHeight,
+  isDocumentTextAlignment,
   isValidPageNumberStartAt,
   MAX_PAGE_MARGIN_MM,
   type DocumentSettings,
@@ -139,6 +147,68 @@ export function DocumentSettingsControls({
           <option value="landscape">Landscape</option>
         </select>
       </label>
+
+      <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
+        <legend className="px-1">Typography</legend>
+        <label className="flex items-center gap-2">
+          Font family
+          <select
+            aria-label="Font family"
+            value={settings.typography.fontFamily}
+            onChange={(event) => {
+              if (!isDocumentFontFamily(event.target.value)) return;
+              onChange({ ...settings, typography: { ...settings.typography, fontFamily: event.target.value } });
+            }}
+            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {DOCUMENT_FONT_FAMILIES.map((family) => <option value={family} key={family}>{family}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Base font size
+          <select
+            aria-label="Base font size"
+            value={settings.typography.fontSize}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (!isDocumentFontSize(value)) return;
+              onChange({ ...settings, typography: { ...settings.typography, fontSize: value } });
+            }}
+            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {DOCUMENT_FONT_SIZES.map((size) => <option value={size} key={size}>{size} pt</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Line height
+          <select
+            aria-label="Line height"
+            value={settings.typography.lineHeight}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (!isDocumentLineHeight(value)) return;
+              onChange({ ...settings, typography: { ...settings.typography, lineHeight: value } });
+            }}
+            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {DOCUMENT_LINE_HEIGHTS.map((height) => <option value={height} key={height}>{height.toFixed(height === 1.75 ? 2 : 1)}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Text alignment
+          <select
+            aria-label="Text alignment"
+            value={settings.typography.alignment}
+            onChange={(event) => {
+              if (!isDocumentTextAlignment(event.target.value)) return;
+              onChange({ ...settings, typography: { ...settings.typography, alignment: event.target.value } });
+            }}
+            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {DOCUMENT_TEXT_ALIGNMENTS.map((alignment) => <option value={alignment} key={alignment}>{alignment[0].toUpperCase() + alignment.slice(1)}</option>)}
+          </select>
+        </label>
+      </fieldset>
 
       <label className="flex items-center gap-2 text-xs text-muted">
         <input
