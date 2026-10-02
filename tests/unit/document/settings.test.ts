@@ -17,6 +17,7 @@ import {
   DEFAULT_DOCUMENT_SETTINGS,
   type PageSize,
 } from "@/lib/document/settings";
+import { DOCUMENT_FONT_REGISTRY } from "@/lib/document/font-registry";
 
 describe("physical page settings", () => {
   it("defines closed, validated typography options and defaults matching the current document styles", () => {
@@ -26,6 +27,15 @@ describe("physical page settings", () => {
     expect(DOCUMENT_LINE_HEIGHTS.every(isDocumentLineHeight)).toBe(true);
     expect(DOCUMENT_TEXT_ALIGNMENTS.every(isDocumentTextAlignment)).toBe(true);
     expect(isDocumentFontFamily("Comic Sans Banana")).toBe(false);
+    expect(isDocumentFontFamily("Montserrat")).toBe(true);
+    expect(DOCUMENT_FONT_REGISTRY.Montserrat).toMatchObject({
+      source: "bundled",
+      cssFamily: '"Montserrat", Arial, sans-serif',
+      loadFamily: "Montserrat",
+      weights: [400, 600, 700],
+    });
+    expect(DOCUMENT_FONT_REGISTRY.Arial.source).toBe("system");
+    expect(DOCUMENT_FONT_REGISTRY.Georgia.source).toBe("system");
     expect(isDocumentFontSize(10.5)).toBe(false);
     expect(isDocumentLineHeight(-1)).toBe(false);
     expect(isDocumentTextAlignment("diagonal")).toBe(false);

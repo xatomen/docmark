@@ -1,3 +1,11 @@
+import {
+  DOCUMENT_FONT_FAMILIES,
+  type DocumentFontFamily,
+} from "@/lib/document/font-registry";
+
+export { DOCUMENT_FONT_FAMILIES, getDocumentFontStack } from "@/lib/document/font-registry";
+export type { DocumentFontFamily } from "@/lib/document/font-registry";
+
 export type PageSize = "a4" | "letter";
 
 export type PageOrientation = "portrait" | "landscape";
@@ -16,15 +24,6 @@ export type PageNumberSettings = {
   position: PageNumberPosition;
   startAt: number;
 };
-
-export const DOCUMENT_FONT_FAMILIES = [
-  "Arial",
-  "Helvetica",
-  "Georgia",
-  "Times New Roman",
-  "Courier New",
-] as const;
-export type DocumentFontFamily = (typeof DOCUMENT_FONT_FAMILIES)[number];
 
 export const DOCUMENT_FONT_SIZES = [9, 10, 11, 12, 14, 16] as const;
 export type DocumentFontSize = (typeof DOCUMENT_FONT_SIZES)[number];
@@ -89,18 +88,6 @@ export function isDocumentLineHeight(value: unknown): value is DocumentLineHeigh
 
 export function isDocumentTextAlignment(value: unknown): value is DocumentTextAlignment {
   return typeof value === "string" && DOCUMENT_TEXT_ALIGNMENTS.some((alignment) => alignment === value);
-}
-
-const FONT_STACKS: Record<DocumentFontFamily, string> = {
-  Arial: 'Arial, Helvetica, sans-serif',
-  Helvetica: 'Helvetica, Arial, sans-serif',
-  Georgia: 'Georgia, "Times New Roman", serif',
-  "Times New Roman": '"Times New Roman", Times, serif',
-  "Courier New": '"Courier New", Courier, monospace',
-};
-
-export function getDocumentFontStack(fontFamily: DocumentFontFamily): string {
-  return FONT_STACKS[fontFamily];
 }
 
 export function isDecorationAlignment(value: unknown): value is DecorationAlignment {

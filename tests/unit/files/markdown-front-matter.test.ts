@@ -279,6 +279,21 @@ describe("portable Markdown front matter", () => {
     expect(serializeMarkdownFile(document)).not.toContain("typography:");
   });
 
+  it("accepts and round-trips the bundled Montserrat font in Front Matter v1", () => {
+    const source = [
+      "---", "docmark:", "  version: 1", "  typography:",
+      "    fontFamily: Montserrat", "    fontSize: 11", "    lineHeight: 1.75",
+      "    alignment: left", "---", "# Local typography",
+    ].join("\n");
+    const parsed = parseMarkdownFile(source);
+
+    expect(parsed.settings.typography).toEqual({
+      fontFamily: "Montserrat", fontSize: 11, lineHeight: 1.75, alignment: "left",
+    });
+    expect(parsed.portableMarkdown.status).toBe("valid");
+    expect(serializeMarkdownFile(parsed)).toContain("fontFamily: Montserrat");
+  });
+
   it.each([
     ["missing version", "docmark:\n  page:\n    size: Letter", "missing-version"],
     ["future version", "docmark:\n  version: 99\n  futuristic: true", "unsupported-version"],

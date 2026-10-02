@@ -105,7 +105,7 @@ test("document typography is shared by measurement and pages, controls paragraph
 
 test("portable typography saves with snapshot semantics and stays file-clean when portability is off", async ({ page }) => {
   const source = [
-    "---", "docmark:", "  version: 1", "  typography:", "    fontFamily: Georgia",
+    "---", "docmark:", "  version: 1", "  typography:", "    fontFamily: Montserrat",
     "    fontSize: 12", "    lineHeight: 1.6", "    alignment: center", "---", "# Portable typography",
   ].join("\n");
   await page.addInitScript((markdownFile) => {
@@ -131,10 +131,12 @@ test("portable typography saves with snapshot semantics and stays file-clean whe
   await page.goto("/editor");
   await page.getByText("File", { exact: true }).click();
   await page.getByRole("button", { name: "Open Markdown…" }).click();
-  await expect(page.getByLabel("Font family")).toHaveValue("Georgia");
+  await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
   await expect(page.getByLabel("Base font size")).toHaveValue("12");
   await expect(page.getByLabel("Line height")).toHaveValue("1.6");
   await expect(page.getByLabel("Text alignment")).toHaveValue("center");
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
+  await expect.poll(() => page.locator(".physical-page .document-content h1").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");
   await page.getByLabel("Base font size").selectOption("14");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
   await page.getByText("File", { exact: true }).click();
@@ -143,6 +145,7 @@ test("portable typography saves with snapshot semantics and stays file-clean whe
   await page.getByLabel("Text alignment").selectOption("justify");
   await page.evaluate(() => window.__releaseTypographyWrite?.());
   await expect.poll(() => page.evaluate(() => window.__typographyWrites?.length)).toBe(1);
+  expect(await page.evaluate(() => window.__typographyWrites?.[0] ?? "")).toContain("fontFamily: Montserrat");
   expect(await page.evaluate(() => window.__typographyWrites?.[0] ?? "")).toContain("fontSize: 14");
   expect(await page.evaluate(() => window.__typographyWrites?.[0] ?? "")).toContain("alignment: center");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();

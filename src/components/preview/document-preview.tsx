@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { renderMarkdown } from "@/lib/markdown/render-markdown";
 import { paginateDocument, type PaginatedPage } from "@/lib/document/pagination";
 import { PageDecorations } from "@/components/document/page-decorations";
+import { ensureDocumentFontReady } from "@/lib/document/font-loading";
+import { getDocumentFontDefinition } from "@/lib/document/font-registry";
 import {
   getDocumentFontStack,
   getPageDimensions,
@@ -26,6 +28,10 @@ export function DocumentPreview({
   const [html, setHtml] = useState("");
   const [renderError, setRenderError] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
+  const [fontReadiness, setFontReadiness] = useState<{
+    key: string;
+    status: "ready" | "fallback";
+  } | null>(null);
   const [pages, setPages] = useState<PaginatedPage[]>([
     { id: "page-1", html: "", isBlank: true, overflowPx: 0 },
   ]);
@@ -43,6 +49,26 @@ export function DocumentPreview({
   const contentHeightPx = contentHeightMm * PX_PER_MM;
   const physicalWidthPx = dimensions.widthMm * PX_PER_MM;
   const physicalHeightPx = dimensions.heightMm * PX_PER_MM;
+  const fontFamily = settings.typography.fontFamily;
+  const fontSize = settings.typography.fontSize;
+  const fontKey = `${fontFamily}:${fontSize}`;
+  const currentFontReadiness = fontReadiness?.key === fontKey ? fontReadiness.status : null;
+  const fontLoadFailed = currentFontReadiness === "fallback";
+
+  useEffect(() => {
+    let active = true;
+    const definition = getDocumentFontDefinition(fontFamily);
+
+    void ensureDocumentFontReady(definition, fontSize).then((ready) => {
+      if (active) {
+        setFontReadiness({ key: fontKey, status: ready ? "ready" : "fallback" });
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [fontFamily, fontKey, fontSize]);
 
   useEffect(() => {
     let active = true;
@@ -70,6 +96,13 @@ export function DocumentPreview({
 
     let active = true;
     const generation = ++paginationGeneration.current;
+    if (!currentFontReadiness) {
+      onPaginationReady(false);
+      return () => {
+        active = false;
+      };
+    }
+
     let initialPaginationComplete = false;
     let lastMeasurementHeight: number | null = null;
     content.style.width = `${contentWidthMm}mm`;
@@ -132,8 +165,10 @@ export function DocumentPreview({
     settings.margins.right,
     settings.margins.bottom,
     settings.margins.left,
-    settings.typography.fontFamily,
-    settings.typography.fontSize,
+    fontFamily,
+    fontKey,
+    fontSize,
+    currentFontReadiness,
     settings.typography.lineHeight,
     settings.typography.alignment,
     onPaginationReady,
@@ -167,8 +202,10 @@ export function DocumentPreview({
   }, []);
 
   const typographyStyle = {
-    "--doc-font-family": getDocumentFontStack(settings.typography.fontFamily),
-    "--doc-font-size": `${settings.typography.fontSize}pt`,
+    "--doc-font-family": getDocumentFontStack(
+      fontLoadFailed ? "Arial" : fontFamily,
+    ),
+    "--doc-font-size": `${fontSize}pt`,
     "--doc-line-height": settings.typography.lineHeight,
     "--doc-text-align": settings.typography.alignment,
   } as CSSProperties;
@@ -241,6 +278,11 @@ export function DocumentPreview({
           {renderError
             ? "This document could not be rendered. Your Markdown is still available in the editor."
             : "Pagination could not be completed. Your Markdown is still available in the editor."}
+        </p>
+      )}
+      {fontLoadFailed && (
+        <p role="status" className="mt-2 shrink-0 text-center text-xs text-amber-800 dark:text-amber-300">
+          {fontFamily} could not be loaded. Arial is used for measurement, preview, and print.
         </p>
       )}
 

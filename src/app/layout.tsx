@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "../styles/print.css";
+import "../styles/document/fonts.css";
 
 export const metadata: Metadata = {
   title: "Docmark — Markdown to documents",

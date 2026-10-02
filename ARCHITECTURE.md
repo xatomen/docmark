@@ -205,7 +205,23 @@ Pagination          Preview
                      Print/PDF
 ```
 
-Typography settings participate in pagination measurement. Font family, base size, line height, and paragraph alignment invalidate pagination; generation guards discard stale work after rapid changes. By contrast, PageDecorations do not participate in pagination measurement. Font stacks contain only local/system fallbacks; no font requests are made. Paragraphs (including blockquote paragraphs) receive body alignment, while headings, lists, table cells, and code stay left-aligned. Code keeps a monospace stack. Decorations inherit the selected family but retain their own alignment and compact 9 pt number size.
+Typography settings participate in pagination measurement. Font family, base size, line height, and paragraph alignment invalidate pagination; generation guards discard stale work after rapid changes. By contrast, PageDecorations do not participate in pagination measurement. System fonts use local/system stacks; the bundled Montserrat assets are served from the Docmark origin with no external font requests. Paragraphs (including blockquote paragraphs) receive body alignment, while headings, lists, table cells, and code stay left-aligned. Code keeps a monospace stack. Decorations inherit the selected family but retain their own alignment and compact 9 pt number size.
+
+### Document Font Registry
+
+The font registry classifies each allowed family as a system font or bundled font, and owns its CSS stack and loading metadata. System families are immediately usable through local/system fallback stacks. Montserrat is the first bundled font and its static WOFF2 files are served from `public/fonts/montserrat/` on Docmark's own origin. The bundled assets cover weights 400, 600, and 700; CSS headings at weight 650 resolve to the nearest available 700 face. Code remains on its independent monospace stack.
+
+```text
+Document Font Registry
+├── System Font → local stack → Measurement
+└── Bundled Font → same-origin WOFF2 → Font Loading API
+                                      ↓ verified faces + document.fonts.ready
+                                   Measurement → Pagination → Preview → Print/PDF
+```
+
+**A bundled font must be ready before pagination based on its metrics is considered stable.** `DocumentPreview` waits for the registry's required weights and verifies that matching `FontFace` entries reached `loaded` before starting the existing measurement/pagination pass. The single shared document style supplies those metrics to the measurement layer, visible pages, and print DOM. `font-display: swap` may show the CSS fallback while loading, but Export PDF remains disabled and pagination is pending until the bundled face is ready. If loading or verification fails, the active rendering stack is switched to Arial before measurement, and the same fallback is used by Preview and Print; a non-fatal message is shown and printing can proceed. Successful load promises are cached per browser `FontFaceSet`, so weights are requested once per document runtime rather than per page.
+
+Font-load results are scoped to the selected family and size key and guarded by the existing effect cleanup and pagination generation counter. If a user changes to Georgia while Montserrat is loading, the stale Montserrat completion cannot mark the current selection ready or start pagination. Rapid switching reuses an in-flight/successful local load but only the latest selection may paginate. Front Matter continues to accept only known registry IDs; URLs and CSS are never accepted as font settings. Montserrat is licensed under SIL Open Font License 1.1; the unchanged upstream license is included beside the assets.
 
 Pagination returns `Page[]` containing only Markdown-derived content fragments. Each visible `physical-page` shell composes that content in its content layer and then renders a separate `PageDecorations` layer:
 
