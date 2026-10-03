@@ -1,5 +1,10 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+  closeDocumentSettings,
+  selectSettingOption,
+} from "./support";
 
 declare global {
   interface Window {
@@ -75,14 +80,15 @@ test("page settings update physical dimensions and Export PDF calls print when r
   await page.evaluate(() => window.__releaseDocmarkFonts?.());
   await expect(pageOne).toBeVisible();
   await expect.poll(() => pageOne.evaluate((element) => (element as HTMLElement).style.width)).toBe("210mm");
-  await page.getByLabel("Orientation").selectOption("landscape");
+  await selectSettingOption(page, "Orientation", "landscape");
   await expect.poll(() => pageOne.evaluate((element) => (element as HTMLElement).style.width)).toBe("297mm");
-  await page.getByLabel("Page size").selectOption("letter");
+  await selectSettingOption(page, "Page size", "letter");
   await expect.poll(() => pageOne.evaluate((element) => (element as HTMLElement).style.width)).toBe("279.4mm");
-  await page.getByLabel("Orientation").selectOption("portrait");
+  await selectSettingOption(page, "Orientation", "portrait");
   await expect.poll(() => pageOne.evaluate((element) => (element as HTMLElement).style.width)).toBe("215.9mm");
 
   await expect(exportButton).toBeEnabled();
+  await closeDocumentSettings(page);
   await exportButton.click();
   await expect.poll(() => page.evaluate(() => window.__docmarkPrintCalls)).toBe(1);
 });

@@ -1,6 +1,17 @@
-import { readFile } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
-import { chooseLocalMarkdown, forceFilePickerFallback, markdownEditor } from "./support";
+import {
+  readFile } from "node:fs/promises";
+import { expect,
+  test,
+  type Page } from "@playwright/test";
+import { chooseLocalMarkdown,
+  forceFilePickerFallback,
+  markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  setSwitch,
+  closeDocumentSettings,
+  openFileMenu,
+} from "./support";
 
 declare global {
   interface Window {
@@ -11,7 +22,9 @@ declare global {
 async function expectTocMatchesDisplayNumbers(page: Page) {
   const entries = page.locator("article .docmark-toc-entry");
   const count = await entries.count();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   const startAt = Number(await page.getByLabel("Page number start at").inputValue());
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   const excludeCover = await page.getByLabel("Exclude cover from numbering").isChecked();
   let nextDisplayPageNumber = startAt;
   const pageNumbers = await page.locator("article").evaluateAll((articles, shouldExcludeCover) =>
@@ -80,7 +93,8 @@ test("TOC maps headings to logical display numbers independently of decoration v
     .toBeGreaterThan(1);
   await expectTocMatchesDisplayNumbers(page);
 
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Show page numbers", true);
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("10");
   const formattedEntry = page.locator('article .docmark-toc-entry[data-docmark-toc-entry="docmark-heading-1"]');
   await expect(formattedEntry.locator(".docmark-toc-page").first()).toHaveText("12");
@@ -148,7 +162,7 @@ test("TOC survives Markdown open, source-only Save, reload, and browser print", 
 
   await expect(page.locator("article .docmark-toc-entry")).toHaveCount(2);
   await expect(markdownEditor(page)).toContainText(":::toc");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -158,6 +172,7 @@ test("TOC survives Markdown open, source-only Save, reload, and browser print", 
 
   await page.reload();
   await expect(page.locator("article .docmark-toc-entry")).toHaveCount(2);
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__printedToc)).toEqual([
     { label: "Report", page: "1" },
@@ -168,8 +183,8 @@ test("TOC survives Markdown open, source-only Save, reload, and browser print", 
 test("TOC uses selected typography without inheriting body alignment", async ({ page }) => {
   await page.goto("/editor");
   await markdownEditor(page).fill(":::toc\n:::\n\n# Typography\n\n## Montserrat");
-  await page.getByLabel("Text alignment").selectOption("justify");
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Text alignment", "justify");
+  await selectSettingOption(page, "Font family", "Montserrat");
 
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   const tocLabel = page.locator("article .docmark-toc-label").first();

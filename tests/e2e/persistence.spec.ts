@@ -1,5 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+} from "./support";
 
 test("autosaved Markdown survives a reload in real browser IndexedDB", async ({ page }) => {
   await page.goto("/editor");

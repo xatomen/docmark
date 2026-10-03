@@ -1,9 +1,14 @@
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test } from "@playwright/test";
 import {
   activeDocumentSummary,
+  closeDocumentSettings,
   createNewDocument,
   markdownEditor,
+  openDocumentSettings,
   renameActiveDocument,
+  selectSettingOption,
   switchToDocument,
 } from "./support";
 
@@ -114,4 +119,36 @@ test("long document titles truncate without pushing header actions off a narrow 
   await documentTrigger.click();
   await expect(page.getByRole("button", { name: `${title} Active`, exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
+});
+
+test("document settings open as a progressive drawer and update preview immediately", async ({ page }) => {
+  await page.goto("/editor");
+  const trigger = page.getByRole("button", { name: "Document settings" });
+  const drawer = page.locator('[data-slot="drawer-dialog"]');
+
+  await expect(trigger).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
+  await expect(drawer).toBeHidden();
+  await trigger.click();
+  await expect(drawer).toBeVisible();
+  await expect.poll(() => drawer.evaluate((element) =>
+    Math.abs(element.getBoundingClientRect().right - window.innerWidth),
+  )).toBeLessThanOrEqual(1);
+
+  for (const section of ["Cover", "Page numbers", "Header & Footer", "Markdown metadata"]) {
+    await expect(drawer.getByRole("button", { name: section, exact: true })).toHaveAttribute("aria-expanded", "false");
+  }
+  await selectSettingOption(page, "Page size", "Letter");
+  await expect(page.locator(".physical-page").first()).toHaveCSS("width", "816px");
+
+  await drawer.getByRole("button", { name: "Page numbers", exact: true }).click();
+  await expect(drawer.getByRole("button", { name: "Page numbers", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await expect(drawer.getByRole("switch", { name: "Show page numbers" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  await openDocumentSettings(page, "Header & Footer");
+  await expect(drawer.getByRole("button", { name: "Header & Footer", exact: true })).toHaveAttribute("aria-expanded", "true");
+  await closeDocumentSettings(page);
 });

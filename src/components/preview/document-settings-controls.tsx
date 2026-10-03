@@ -1,6 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import {
+  Checkbox,
+  Disclosure,
+  Drawer,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  Separator,
+  Switch,
+  TextArea,
+  TextField,
+} from "@heroui/react";
+import { ChevronDown, Settings } from "lucide-react";
 import {
   getMarginValidationError,
   getPageDimensions,
@@ -30,12 +44,149 @@ type DocumentSettingsControlsProps = {
   metadataWarning: string | null;
 };
 
+type SelectOption = { id: string; label: string };
+
 const MARGIN_FIELDS: { key: keyof PageMargins; label: string }[] = [
   { key: "top", label: "Top" },
   { key: "right", label: "Right" },
   { key: "bottom", label: "Bottom" },
   { key: "left", label: "Left" },
 ];
+
+function SettingSelect({
+  label,
+  value,
+  options,
+  onChange,
+  isDisabled = false,
+}: {
+  label: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  isDisabled?: boolean;
+}) {
+  return (
+    <Select
+      className="min-w-0"
+      selectedKey={value}
+      onSelectionChange={(key) => {
+        if (key !== null) onChange(String(key));
+      }}
+      isDisabled={isDisabled}
+      variant="secondary"
+    >
+      <Label>{label}</Label>
+      <Select.Trigger aria-label={label} className="w-full justify-between">
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {options.map((option) => (
+            <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+              {option.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+function SettingSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function AdvancedSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Disclosure className="border-t border-border py-1">
+      <Disclosure.Heading>
+        <Disclosure.Trigger className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md py-2 text-left text-sm font-medium text-foreground outline-none hover:bg-subtle aria-expanded:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent aria-expanded:font-semibold">
+          {title}
+          <Disclosure.Indicator>
+            <ChevronDown aria-hidden="true" className="size-4 text-muted" />
+          </Disclosure.Indicator>
+        </Disclosure.Trigger>
+      </Disclosure.Heading>
+      <Disclosure.Content>
+        <Disclosure.Body className="space-y-4 pb-4 pt-2">{children}</Disclosure.Body>
+      </Disclosure.Content>
+    </Disclosure>
+  );
+}
+
+function ToggleSetting({
+  label,
+  isSelected,
+  onChange,
+}: {
+  label: string;
+  isSelected: boolean;
+  onChange: (isSelected: boolean) => void;
+}) {
+  return (
+    <Switch isSelected={isSelected} onChange={onChange} className="w-full">
+      <Switch.Content className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 [&>[data-slot=label]]:min-w-0">
+        <Label>{label}</Label>
+        <Switch.Control>
+          <Switch.Thumb />
+        </Switch.Control>
+      </Switch.Content>
+    </Switch>
+  );
+}
+
+function CheckSetting({
+  label,
+  isSelected,
+  isDisabled = false,
+  onChange,
+}: {
+  label: string;
+  isSelected: boolean;
+  isDisabled?: boolean;
+  onChange: (isSelected: boolean) => void;
+}) {
+  return (
+    <Checkbox isSelected={isSelected} isDisabled={isDisabled} onChange={onChange} className="w-full">
+      <Checkbox.Content className="inline-flex items-center gap-2 text-sm">
+        <Checkbox.Control>
+          <Checkbox.Indicator />
+        </Checkbox.Control>
+        <Label>{label}</Label>
+      </Checkbox.Content>
+    </Checkbox>
+  );
+}
+
+function SettingTextField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TextField className="min-w-0 space-y-1.5">
+      <Label>{label}</Label>
+      <Input
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value.replace(/\r?\n/g, " "))}
+        variant="secondary"
+      />
+    </TextField>
+  );
+}
 
 export function DocumentSettingsControls({
   settings,
@@ -70,341 +221,260 @@ export function DocumentSettingsControls({
     const error = getMarginValidationError(margins, dimensions);
     setMarginError(error);
 
-    if (!error) {
-      onChange({ ...settings, margins });
-    }
-  }
-
-  function updatePageSize(pageSize: DocumentSettings["pageSize"]) {
-    onChange({ ...settings, pageSize });
-  }
-
-  function updateOrientation(orientation: DocumentSettings["orientation"]) {
-    onChange({ ...settings, orientation });
+    if (!error) onChange({ ...settings, margins });
   }
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2.5 sm:px-6">
-      <details className="relative text-xs text-muted">
-        <summary className="cursor-pointer select-none rounded border border-border px-2.5 py-1.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent">
-          Margins
-        </summary>
-        <div className="absolute left-0 z-10 mt-2 grid w-64 grid-cols-2 gap-3 rounded-md border border-border bg-background p-3 shadow-lg">
-          {MARGIN_FIELDS.map(({ key, label }) => {
-            const id = `margin-${key}`;
-            return (
-              <label key={key} htmlFor={id} className="space-y-1">
-                <span className="block">{label}</span>
-                <span className="flex items-center gap-2">
-                  <input
-                    id={id}
+    <Drawer>
+      <Drawer.Trigger
+        aria-label="Document settings"
+        className="inline-grid size-9 place-items-center rounded-[var(--docmark-radius-control)] border border-border bg-surface-secondary text-foreground outline-none hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <Settings aria-hidden="true" className="size-[18px]" />
+      </Drawer.Trigger>
+      <Drawer.Backdrop>
+        <Drawer.Content placement="right">
+          <Drawer.Dialog className="flex h-dvh max-h-dvh w-[min(26rem,100vw)] max-w-full flex-col overflow-hidden border-l border-border bg-surface text-foreground shadow-[var(--overlay-shadow)]">
+            <Drawer.Header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <Drawer.Heading className="text-base font-semibold">Document settings</Drawer.Heading>
+              <Drawer.CloseTrigger
+                aria-label="Close document settings"
+                className="static ms-auto"
+              />
+            </Drawer.Header>
+            <Drawer.Body className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              <SettingSection title="Page">
+                <div className="grid grid-cols-2 gap-3">
+                  <SettingSelect
+                    label="Page size"
+                    value={settings.pageSize}
+                    options={[{ id: "a4", label: "A4" }, { id: "letter", label: "Letter" }]}
+                    onChange={(value) => onChange({ ...settings, pageSize: value as DocumentSettings["pageSize"] })}
+                  />
+                  <SettingSelect
+                    label="Orientation"
+                    value={settings.orientation}
+                    options={[{ id: "portrait", label: "Portrait" }, { id: "landscape", label: "Landscape" }]}
+                    onChange={(value) => onChange({ ...settings, orientation: value as DocumentSettings["orientation"] })}
+                  />
+                </div>
+                <Disclosure className="rounded-lg border border-border px-3">
+                  <Disclosure.Heading>
+                    <Disclosure.Trigger className="flex min-h-11 w-full items-center justify-between rounded-md text-sm font-medium outline-none hover:bg-subtle aria-expanded:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent aria-expanded:font-semibold">
+                      Margins
+                      <Disclosure.Indicator>
+                        <ChevronDown aria-hidden="true" className="size-4 text-muted" />
+                      </Disclosure.Indicator>
+                    </Disclosure.Trigger>
+                  </Disclosure.Heading>
+                  <Disclosure.Content>
+                    <Disclosure.Body className="grid grid-cols-2 gap-3 pb-3 pt-1">
+                      {MARGIN_FIELDS.map(({ key, label }) => {
+                        const id = `margin-${key}`;
+                        return (
+                          <TextField key={key} className="space-y-1.5">
+                            <Label htmlFor={id}>{label} (mm)</Label>
+                            <Input
+                              id={id}
+                              type="number"
+                              min={0}
+                              max={MAX_PAGE_MARGIN_MM}
+                              step="0.1"
+                              inputMode="decimal"
+                              value={marginDrafts[key]}
+                              aria-describedby={marginError ? "margin-error" : undefined}
+                              onChange={(event) => updateMargin(key, event.target.value)}
+                              variant="secondary"
+                            />
+                          </TextField>
+                        );
+                      })}
+                      {marginError && (
+                        <p id="margin-error" role="status" className="col-span-2 text-xs text-red-700 dark:text-red-300">
+                          {marginError}
+                        </p>
+                      )}
+                    </Disclosure.Body>
+                  </Disclosure.Content>
+                </Disclosure>
+              </SettingSection>
+
+              <Separator />
+
+              <SettingSection title="Appearance">
+                <SettingSelect
+                  label="Document theme"
+                  value={settings.theme}
+                  options={DOCUMENT_THEMES.map((theme) => ({ id: theme.id, label: theme.label }))}
+                  onChange={(value) => {
+                    if (isDocumentThemeId(value)) onChange({ ...settings, theme: value });
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <SettingSelect
+                    label="Font family"
+                    value={settings.typography.fontFamily}
+                    options={DOCUMENT_FONT_FAMILIES.map((family) => ({ id: family, label: family }))}
+                    onChange={(value) => {
+                      if (isDocumentFontFamily(value)) onChange({ ...settings, typography: { ...settings.typography, fontFamily: value } });
+                    }}
+                  />
+                  <SettingSelect
+                    label="Base font size"
+                    value={String(settings.typography.fontSize)}
+                    options={DOCUMENT_FONT_SIZES.map((size) => ({ id: String(size), label: `${size} pt` }))}
+                    onChange={(value) => {
+                      const size = Number(value);
+                      if (isDocumentFontSize(size)) onChange({ ...settings, typography: { ...settings.typography, fontSize: size } });
+                    }}
+                  />
+                  <SettingSelect
+                    label="Line height"
+                    value={String(settings.typography.lineHeight)}
+                    options={DOCUMENT_LINE_HEIGHTS.map((height) => ({ id: String(height), label: height.toFixed(height === 1.75 ? 2 : 1) }))}
+                    onChange={(value) => {
+                      const lineHeight = Number(value);
+                      if (isDocumentLineHeight(lineHeight)) onChange({ ...settings, typography: { ...settings.typography, lineHeight } });
+                    }}
+                  />
+                  <SettingSelect
+                    label="Text alignment"
+                    value={settings.typography.alignment}
+                    options={DOCUMENT_TEXT_ALIGNMENTS.map((alignment) => ({ id: alignment, label: alignment[0].toUpperCase() + alignment.slice(1) }))}
+                    onChange={(value) => {
+                      if (isDocumentTextAlignment(value)) onChange({ ...settings, typography: { ...settings.typography, alignment: value } });
+                    }}
+                  />
+                </div>
+              </SettingSection>
+
+              <AdvancedSection title="Cover">
+                <ToggleSetting
+                  label="Enable cover page"
+                  isSelected={settings.cover.enabled}
+                  onChange={(enabled) => onChange({ ...settings, cover: { ...settings.cover, enabled } })}
+                />
+                {settings.cover.enabled && (
+                  <div className="grid grid-cols-1 gap-3">
+                    {([
+                      ["title", "Title"],
+                      ["subtitle", "Subtitle"],
+                      ["author", "Author"],
+                      ["organization", "Organization"],
+                      ["date", "Date"],
+                    ] as const).map(([key, label]) => (
+                      <SettingTextField
+                        key={key}
+                        label={`Cover ${label.toLowerCase()}`}
+                        value={settings.cover[key]}
+                        onChange={(value) => onChange({ ...settings, cover: { ...settings.cover, [key]: value } })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </AdvancedSection>
+
+              <AdvancedSection title="Page numbers">
+                <ToggleSetting
+                  label="Show page numbers"
+                  isSelected={settings.pageNumbers.enabled}
+                  onChange={(enabled) => onChange({ ...settings, pageNumbers: { ...settings.pageNumbers, enabled } })}
+                />
+                <SettingSelect
+                  label="Page number position"
+                  value={settings.pageNumbers.position}
+                  isDisabled={!settings.pageNumbers.enabled}
+                  options={[
+                    { id: "bottom-left", label: "Bottom left" },
+                    { id: "bottom-center", label: "Bottom center" },
+                    { id: "bottom-right", label: "Bottom right" },
+                  ]}
+                  onChange={(value) => {
+                    if (isPageNumberPosition(value)) onChange({ ...settings, pageNumbers: { ...settings.pageNumbers, position: value } });
+                  }}
+                />
+                <TextField className="space-y-1.5">
+                    <Label>Page number start at</Label>
+                  <Input
+                    aria-label="Page number start at"
                     type="number"
                     min={0}
-                    max={MAX_PAGE_MARGIN_MM}
-                    step="0.1"
-                    inputMode="decimal"
-                    value={marginDrafts[key]}
-                    aria-describedby={marginError ? "margin-error" : undefined}
-                    onChange={(event) => updateMargin(key, event.target.value)}
-                    className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    step={1}
+                    value={settings.pageNumbers.startAt}
+                    onChange={(event) => {
+                      if (event.target.value.trim() === "") return;
+                      const value = Number(event.target.value);
+                      if (isValidPageNumberStartAt(value)) onChange({ ...settings, pageNumbers: { ...settings.pageNumbers, startAt: value } });
+                    }}
+                    variant="secondary"
                   />
-                  <span>mm</span>
-                </span>
-              </label>
-            );
-          })}
-          {marginError && (
-            <p id="margin-error" role="status" className="col-span-2 text-xs text-red-700 dark:text-red-300">
-              {marginError}
-            </p>
-          )}
-        </div>
-      </details>
+                </TextField>
+                <CheckSetting
+                  label="Exclude cover from numbering"
+                  isSelected={settings.pageNumbers.excludeCover}
+                  isDisabled={!settings.cover.enabled}
+                  onChange={(excludeCover) => onChange({ ...settings, pageNumbers: { ...settings.pageNumbers, excludeCover } })}
+                />
+              </AdvancedSection>
 
-      <label className="flex items-center gap-2 text-xs text-muted">
-        Page size
-        <select
-          value={settings.pageSize}
-          onChange={(event) =>
-            updatePageSize(event.target.value as DocumentSettings["pageSize"])
-          }
-          className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <option value="a4">A4</option>
-          <option value="letter">Letter</option>
-        </select>
-      </label>
-
-      <label className="flex items-center gap-2 text-xs text-muted">
-        Orientation
-        <select
-          value={settings.orientation}
-          onChange={(event) =>
-            updateOrientation(event.target.value as DocumentSettings["orientation"])
-          }
-          className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-        </select>
-      </label>
-
-      <label className="flex items-center gap-2 text-xs text-muted">
-        Document theme
-        <select
-          aria-label="Document theme"
-          value={settings.theme}
-          onChange={(event) => {
-            if (!isDocumentThemeId(event.target.value)) return;
-            onChange({ ...settings, theme: event.target.value });
-          }}
-          className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {DOCUMENT_THEMES.map((theme) => (
-            <option value={theme.id} key={theme.id}>{theme.label}</option>
-          ))}
-        </select>
-      </label>
-
-      <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
-        <legend className="px-1">Cover Page</legend>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            aria-label="Enable cover page"
-            checked={settings.cover.enabled}
-            onChange={(event) => onChange({
-              ...settings,
-              cover: { ...settings.cover, enabled: event.target.checked },
-            })}
-            className="accent-accent"
-          />
-          Enable cover page
-        </label>
-        {settings.cover.enabled && ([
-          ["title", "Title"],
-          ["subtitle", "Subtitle"],
-          ["author", "Author"],
-          ["organization", "Organization"],
-          ["date", "Date"],
-        ] as const).map(([key, label]) => (
-          <label className="flex items-center gap-2" key={key}>
-            {label}
-            <input
-              type="text"
-              aria-label={`Cover ${label.toLowerCase()}`}
-              value={settings.cover[key]}
-              onChange={(event) => onChange({
-                ...settings,
-                cover: { ...settings.cover, [key]: event.target.value.replace(/\r?\n/g, " ") },
-              })}
-              className="w-44 rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            />
-          </label>
-        ))}
-      </fieldset>
-
-      <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
-        <legend className="px-1">Typography</legend>
-        <label className="flex items-center gap-2">
-          Font family
-          <select
-            aria-label="Font family"
-            value={settings.typography.fontFamily}
-            onChange={(event) => {
-              if (!isDocumentFontFamily(event.target.value)) return;
-              onChange({ ...settings, typography: { ...settings.typography, fontFamily: event.target.value } });
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {DOCUMENT_FONT_FAMILIES.map((family) => <option value={family} key={family}>{family}</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Base font size
-          <select
-            aria-label="Base font size"
-            value={settings.typography.fontSize}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (!isDocumentFontSize(value)) return;
-              onChange({ ...settings, typography: { ...settings.typography, fontSize: value } });
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {DOCUMENT_FONT_SIZES.map((size) => <option value={size} key={size}>{size} pt</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Line height
-          <select
-            aria-label="Line height"
-            value={settings.typography.lineHeight}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (!isDocumentLineHeight(value)) return;
-              onChange({ ...settings, typography: { ...settings.typography, lineHeight: value } });
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {DOCUMENT_LINE_HEIGHTS.map((height) => <option value={height} key={height}>{height.toFixed(height === 1.75 ? 2 : 1)}</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Text alignment
-          <select
-            aria-label="Text alignment"
-            value={settings.typography.alignment}
-            onChange={(event) => {
-              if (!isDocumentTextAlignment(event.target.value)) return;
-              onChange({ ...settings, typography: { ...settings.typography, alignment: event.target.value } });
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {DOCUMENT_TEXT_ALIGNMENTS.map((alignment) => <option value={alignment} key={alignment}>{alignment[0].toUpperCase() + alignment.slice(1)}</option>)}
-          </select>
-        </label>
-      </fieldset>
-
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input
-          type="checkbox"
-          aria-label="Include Docmark settings in Markdown"
-          checked={portableMarkdown.includeDocmarkSettings}
-          disabled={portableMarkdown.status !== "valid" && portableMarkdown.status !== "invalid-settings"}
-          onChange={(event) => onPortableMetadataChange(event.target.checked)}
-          className="accent-accent"
-        />
-        Include Docmark settings in Markdown
-      </label>
-      <fieldset className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
-        <legend className="px-1">Page numbers</legend>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={settings.pageNumbers.enabled}
-            onChange={(event) => onChange({
-              ...settings,
-              pageNumbers: { ...settings.pageNumbers, enabled: event.target.checked },
-            })}
-            className="accent-accent"
-          />
-          Show page numbers
-        </label>
-        <label className="flex items-center gap-2">
-          Position
-          <select
-            aria-label="Page number position"
-            value={settings.pageNumbers.position}
-            disabled={!settings.pageNumbers.enabled}
-            onChange={(event) => {
-              if (!isPageNumberPosition(event.target.value)) return;
-              onChange({
-                ...settings,
-                pageNumbers: { ...settings.pageNumbers, position: event.target.value },
-              });
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-          >
-            <option value="bottom-left">Bottom left</option>
-            <option value="bottom-center">Bottom center</option>
-            <option value="bottom-right">Bottom right</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Start at
-          <input
-            type="number"
-            aria-label="Page number start at"
-            min={0}
-            step={1}
-            value={settings.pageNumbers.startAt}
-            onChange={(event) => {
-              if (event.target.value.trim() === "") return;
-              const value = Number(event.target.value);
-              if (!isValidPageNumberStartAt(value)) return;
-              onChange({
-                ...settings,
-                pageNumbers: { ...settings.pageNumbers, startAt: value },
-              });
-            }}
-            className="w-20 rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            aria-label="Exclude cover from numbering"
-            checked={settings.pageNumbers.excludeCover}
-            disabled={!settings.cover.enabled}
-            onChange={(event) => onChange({
-              ...settings,
-              pageNumbers: { ...settings.pageNumbers, excludeCover: event.target.checked },
-            })}
-            className="accent-accent"
-          />
-          Exclude cover from numbering
-        </label>
-      </fieldset>
-      {(["header", "footer"] as const).map((key) => {
-        const label = key === "header" ? "Header" : "Footer";
-        const decoration = settings[key];
-        return (
-          <fieldset key={key} className="flex basis-full flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2 text-xs text-muted">
-            <legend className="px-1">{label}</legend>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`show-${key}`}
-                aria-label={`Show ${key}`}
-                checked={decoration.enabled}
-                onChange={(event) => onChange({
-                  ...settings,
-                  [key]: { ...decoration, enabled: event.target.checked },
+              <AdvancedSection title="Header & Footer">
+                {(["header", "footer"] as const).map((key) => {
+                  const label = key === "header" ? "Header" : "Footer";
+                  const decoration = settings[key];
+                  return (
+                    <div key={key} className="space-y-3 border-b border-border pb-4 last:border-b-0 last:pb-0">
+                      <ToggleSetting
+                        label={`Show ${key}`}
+                        isSelected={decoration.enabled}
+                        onChange={(enabled) => onChange({ ...settings, [key]: { ...decoration, enabled } })}
+                      />
+                      <TextField className="space-y-1.5">
+                        <Label>{label} text</Label>
+                        <TextArea
+                          aria-label={`${label} text`}
+                          rows={2}
+                          value={decoration.text}
+                          disabled={!decoration.enabled}
+                          onChange={(event) => onChange({ ...settings, [key]: { ...decoration, text: event.target.value } })}
+                          variant="secondary"
+                          className="w-full resize-y"
+                        />
+                      </TextField>
+                      <SettingSelect
+                        label={`${label} alignment`}
+                        value={decoration.alignment}
+                        isDisabled={!decoration.enabled}
+                        options={[
+                          { id: "left", label: "Left" },
+                          { id: "center", label: "Center" },
+                          { id: "right", label: "Right" },
+                        ]}
+                        onChange={(value) => {
+                          if (isDecorationAlignment(value)) onChange({ ...settings, [key]: { ...decoration, alignment: value } });
+                        }}
+                      />
+                    </div>
+                  );
                 })}
-                className="accent-accent"
-              />
-              <label htmlFor={`show-${key}`}>Show {key}</label>
-            </div>
-            <label className="flex items-center gap-2">
-              Text
-              <textarea
-                aria-label={`${label} text`}
-                rows={1}
-                value={decoration.text}
-                disabled={!decoration.enabled}
-                onChange={(event) => onChange({
-                  ...settings,
-                  [key]: { ...decoration, text: event.target.value },
-                })}
-                className="min-h-8 w-56 resize-y rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              Alignment
-              <select
-                aria-label={`${label} alignment`}
-                value={decoration.alignment}
-                disabled={!decoration.enabled}
-                onChange={(event) => {
-                  if (!isDecorationAlignment(event.target.value)) return;
-                  onChange({ ...settings, [key]: { ...decoration, alignment: event.target.value } });
-                }}
-                className="rounded border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </label>
-          </fieldset>
-        );
-      })}
-      {metadataWarning && (
-        <p role="status" className="basis-full text-xs text-amber-700 dark:text-amber-300">
-          {metadataWarning}
-        </p>
-      )}
-    </div>
+              </AdvancedSection>
+
+              <AdvancedSection title="Markdown metadata">
+                <CheckSetting
+                  label="Include Docmark settings in Markdown"
+                  isSelected={portableMarkdown.includeDocmarkSettings}
+                  isDisabled={portableMarkdown.status !== "valid" && portableMarkdown.status !== "invalid-settings"}
+                  onChange={onPortableMetadataChange}
+                />
+                {metadataWarning && (
+                  <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
+                    {metadataWarning}
+                  </p>
+                )}
+              </AdvancedSection>
+            </Drawer.Body>
+          </Drawer.Dialog>
+        </Drawer.Content>
+      </Drawer.Backdrop>
+    </Drawer>
   );
 }

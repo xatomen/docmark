@@ -1,6 +1,18 @@
-import { readFile } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
-import { chooseLocalMarkdown, createNewDocument, forceFilePickerFallback, markdownEditor } from "./support";
+import {
+  readFile } from "node:fs/promises";
+import { expect,
+  test,
+  type Page } from "@playwright/test";
+import { chooseLocalMarkdown,
+  createNewDocument,
+  forceFilePickerFallback,
+  markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  setSwitch,
+  closeDocumentSettings,
+  openFileMenu,
+} from "./support";
 
 async function waitUntilReady(page: Page) {
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
@@ -37,6 +49,7 @@ test("renders Mermaid diagram types locally, sequentially, and keeps normal code
       (window as Window & { __printSvgCount?: number }).__printSvgCount = document.querySelectorAll("article .docmark-mermaid svg").length;
     };
   });
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & { __printSvgCount?: number }).__printSvgCount)).toBe(5);
   expect(await page.locator("article .docmark-mermaid svg").evaluateAll((svgs) => svgs.map((svg) => svg.id))).toEqual(svgIds);
@@ -115,24 +128,29 @@ test("Mermaid is ready before TOC page mapping and resizes for orientation witho
 
   const firstSvgId = await page.locator("article .docmark-mermaid svg").getAttribute("id");
   const firstSvgWidth = Number(await page.locator("article .docmark-mermaid svg").getAttribute("width"));
-  await page.getByRole("combobox", { name: "Orientation" }).selectOption("landscape");
-  await page.getByLabel("Page size").selectOption("letter");
-  await page.getByText("Margins", { exact: true }).click();
-  await page.getByLabel("Left").fill("26");
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Orientation", "landscape");
+  await selectSettingOption(page, "Page size", "letter");
+  await openDocumentSettings(page, "Margins");
+  const margins = page.getByRole("button", { name: "Margins", exact: true });
+  if (await margins.getAttribute("aria-expanded") !== "true") await margins.click();
+  await page.getByLabel("Left (mm)").fill("26");
+  await selectSettingOption(page, "Font family", "Montserrat");
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
   expect(await page.locator("article .docmark-mermaid svg").getAttribute("id")).toBe(firstSvgId);
   expect(Number(await page.locator("article .docmark-mermaid svg").getAttribute("width"))).toBeLessThan(firstSvgWidth);
   expect(firstSvg).toBeTruthy();
-  await page.getByLabel("Show header").check();
-  await page.getByLabel("Show footer").check();
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Show header", true);
+  await setSwitch(page, "Show footer", true);
+  await setSwitch(page, "Show page numbers", true);
+  await closeDocumentSettings(page);
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
 
   // Rapid edits leave the final generation in the preview.
   await markdownEditor(page).fill(source.replace("N0 --> N1", "N0 --> N1 --> N2"));
+  await openDocumentSettings(page);
+  await closeDocumentSettings(page);
   await markdownEditor(page).fill(source.replace("flowchart TB", "flowchart LR"));
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
@@ -163,10 +181,11 @@ test("a diagram moves intact to the next page when the remaining space is too sh
 
 test("a very wide flowchart stays within the physical content width", async ({ page }) => {
   await page.goto("/editor");
-  await page.getByLabel("Text alignment").selectOption("justify");
+  await selectSettingOption(page, "Text alignment", "justify");
   const edges = Array.from({ length: 14 }, (_, index) =>
     `N${index}[${`A deliberately long diagram label ${index} `.repeat(3)}] --> N${index + 1}`,
   ).join("\n");
+  await closeDocumentSettings(page);
   await markdownEditor(page).fill(`\`\`\`mermaid\nflowchart LR\n${edges}\n\`\`\``);
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
@@ -199,7 +218,7 @@ test("Markdown Open, Save, reload, and duplicate preserve Mermaid source and ren
   await waitUntilReady(page);
   await expect(markdownEditor(page)).toContainText("flowchart LR");
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -210,6 +229,7 @@ test("Markdown Open, Save, reload, and duplicate preserve Mermaid source and ren
   await page.reload();
   await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(1);
   await waitUntilReady(page);
+  await closeDocumentSettings(page);
   await page.getByLabel("Active document: local-diagram. Open document list").click();
   await page.getByRole("button", { name: /^Actions for / }).first().click();
   await page.getByRole("menuitem", { name: "Duplicate", exact: true }).first().click();

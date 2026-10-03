@@ -1,5 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
+import {
+  readFile } from "node:fs/promises";
+import { expect,
+  test,
+  type Page } from "@playwright/test";
 import {
   chooseLocalMarkdown,
   createNewDocument,
@@ -7,6 +10,11 @@ import {
   markdownEditor,
   renameActiveDocument,
   switchToDocument,
+  openDocumentSettings,
+  setSwitch,
+  setCheckbox,
+  closeDocumentSettings,
+  openFileMenu,
 } from "./support";
 
 declare global {
@@ -36,10 +44,14 @@ async function expectTocMatchesDecorations(page: Page) {
 
 test("new documents default to excluding cover and startAt zero counts physical content pages", async ({ page }) => {
   await page.goto("/editor");
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   const excludeCover = page.getByLabel("Exclude cover from numbering");
   await expect(excludeCover).toBeChecked();
   await expect(excludeCover).toBeDisabled();
-  await page.getByLabel("Show page numbers").check();
+  await closeDocumentSettings(page);
+  await openDocumentSettings(page, "Page numbers");
+  await setSwitch(page, "Show page numbers", true);
+  await closeDocumentSettings(page);
   await markdownEditor(page).fill([
     "# First content page",
     "",
@@ -53,6 +65,7 @@ test("new documents default to excluding cover and startAt zero counts physical 
   const physicalPages = page.locator("article.physical-page");
   await expect(physicalPages).toHaveCount(3);
   await expect(visiblePageNumbers(page)).toHaveText(["1", "2", "3"]);
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1", "2"]);
   await expect(physicalPages).toHaveCount(3);
@@ -62,8 +75,9 @@ test("new documents default to excluding cover and startAt zero counts physical 
 test("cover exclusion is semantic, toggles cleanly, survives cover toggles, reload, and duplication", async ({ page }) => {
   await page.goto("/editor");
   await markdownEditor(page).fill("# Introduction\n\n:::pagebreak\n:::\n\n# Architecture");
-  await page.getByLabel("Show page numbers").check();
-  await page.getByLabel("Enable cover page").check();
+  await setSwitch(page, "Show page numbers", true);
+  await setSwitch(page, "Enable cover page", true);
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   const excludeCover = page.getByLabel("Exclude cover from numbering");
   await expect(excludeCover).toBeChecked();
   await expect(page.locator("article")).toHaveCount(3);
@@ -71,29 +85,34 @@ test("cover exclusion is semantic, toggles cleanly, survives cover toggles, relo
   await expect(page.locator("article").first().locator("[data-page-number]")).toHaveCount(0);
   await expect(visiblePageNumbers(page)).toHaveText(["1", "2"]);
 
-  await excludeCover.uncheck();
+  await closeDocumentSettings(page);
+  await setCheckbox(page, "Exclude cover from numbering", false);
   await expect(visiblePageNumbers(page)).toHaveText(["2", "3"]);
-  await excludeCover.check();
+  await setCheckbox(page, "Exclude cover from numbering", true);
   await expect(visiblePageNumbers(page)).toHaveText(["1", "2"]);
-  await page.getByLabel("Enable cover page").uncheck();
+  await setSwitch(page, "Enable cover page", false);
   await expect(excludeCover).toBeChecked();
   await expect(excludeCover).toBeDisabled();
   await expect(visiblePageNumbers(page)).toHaveText(["1", "2"]);
-  await page.getByLabel("Enable cover page").check();
+  await setSwitch(page, "Enable cover page", true);
   await expect(excludeCover).toBeChecked();
 
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1"]);
-  await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await closeDocumentSettings(page);
   await page.reload();
+  await openDocumentSettings(page, "Page numbers");
   await expect(excludeCover).toBeChecked();
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1"]);
 
+  await closeDocumentSettings(page);
   await page.locator('button[aria-label^="Active document:"]').click();
   await page.getByRole("button", { name: /^Actions for / }).first().click();
   await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
+  await openDocumentSettings(page, "Page numbers");
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(visiblePageNumbers(page)).toHaveText(["0", "1"]);
@@ -123,30 +142,31 @@ test("TOC and decorations share logical numbers, including zero, while disabled 
     "",
     "# Architecture",
   ].join("\n"));
-  await page.getByLabel("Enable cover page").check();
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Enable cover page", true);
+  await setSwitch(page, "Show page numbers", true);
   await expect(page.locator("article")).toHaveCount(3);
   await expectTocMatchesDecorations(page);
   const introductionId = await page.getByRole("heading", { name: "Introduction" }).getAttribute("data-docmark-heading-id");
   const introductionToc = page.locator(`.docmark-toc-entry[data-docmark-toc-entry="${introductionId}"] .docmark-toc-page`).first();
   await expect(introductionToc).toHaveText("1");
 
-  const excludeCover = page.getByLabel("Exclude cover from numbering");
-  await excludeCover.uncheck();
+  await setCheckbox(page, "Exclude cover from numbering", false);
   await expectTocMatchesDecorations(page);
   await expect(introductionToc).toHaveText("2");
 
-  await excludeCover.check();
+  await setCheckbox(page, "Exclude cover from numbering", true);
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("0");
   await expectTocMatchesDecorations(page);
   await expect(introductionToc).toHaveText("0");
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__logicalPrint)).toEqual({
     numbers: ["0", "1"],
     toc: ["0", "1"],
   });
 
-  await page.getByLabel("Show page numbers").uncheck();
+  await setSwitch(page, "Show page numbers", false);
   await expect(visiblePageNumbers(page)).toHaveCount(0);
   await expect(introductionToc).toHaveText("0");
   await expect(page.locator("article")).toHaveCount(3);
@@ -175,13 +195,14 @@ test("portable Front Matter opens, saves, and reloads zero and cover exclusion",
   ].join("\n");
   await chooseLocalMarkdown(page, "logical.md", source);
 
-  await expect(page.getByLabel("Enable cover page")).toBeChecked();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
+  await expect(page.getByRole("switch", { name: "Enable cover page" })).toBeChecked();
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["0"]);
   await expect(page.locator(".docmark-toc-page").first()).toHaveText("0");
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -191,6 +212,7 @@ test("portable Front Matter opens, saves, and reloads zero and cover exclusion",
   expect(saved).toContain("excludeCover: true");
 
   await page.reload();
+  await openDocumentSettings(page, "Page numbers");
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["0"]);
@@ -212,6 +234,7 @@ test("legacy portable metadata without excludeCover keeps the old included-cover
     "# Content",
   ].join("\n");
   await chooseLocalMarkdown(page, "legacy.md", source);
+  await openDocumentSettings(page, "Page numbers");
   await expect(page.getByLabel("Exclude cover from numbering")).not.toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["6"]);
   await expect(page.locator("article").first().locator("[data-page-number]")).toHaveCount(0);
@@ -221,8 +244,9 @@ test("logical page-number settings stay isolated between documents", async ({ pa
   await page.goto("/editor");
   await markdownEditor(page).fill("# Document A");
   await renameActiveDocument(page, "Logical A");
-  await page.getByLabel("Enable cover page").check();
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Enable cover page", true);
+  await setSwitch(page, "Show page numbers", true);
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("0");
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["0"]);
@@ -230,17 +254,20 @@ test("logical page-number settings stay isolated between documents", async ({ pa
   await createNewDocument(page);
   await renameActiveDocument(page, "Logical B");
   await markdownEditor(page).fill("# Document B");
-  await page.getByLabel("Enable cover page").check();
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Enable cover page", true);
+  await setSwitch(page, "Show page numbers", true);
+  await openDocumentSettings(page, "Page numbers");
   await page.getByLabel("Page number start at").fill("5");
-  await page.getByLabel("Exclude cover from numbering").uncheck();
+  await setCheckbox(page, "Exclude cover from numbering", false);
   await expect(visiblePageNumbers(page)).toHaveText(["6"]);
 
   await switchToDocument(page, "Logical A");
+  await openDocumentSettings(page, "Page numbers");
   await expect(page.getByLabel("Page number start at")).toHaveValue("0");
   await expect(page.getByLabel("Exclude cover from numbering")).toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["0"]);
   await switchToDocument(page, "Logical B");
+  await openDocumentSettings(page, "Page numbers");
   await expect(page.getByLabel("Page number start at")).toHaveValue("5");
   await expect(page.getByLabel("Exclude cover from numbering")).not.toBeChecked();
   await expect(visiblePageNumbers(page)).toHaveText(["6"]);

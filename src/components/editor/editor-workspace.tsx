@@ -862,6 +862,18 @@ export function EditorWorkspace() {
               {persistenceStatus === "error" && documentError ? `: ${documentError}` : ""}
             </span>
           </span>
+          {documentRecord && (
+            <DocumentSettingsControls
+              key={`settings-${documentRecord.id}`}
+              settings={documentRecord.settings}
+              onChange={updateDocumentSettings}
+              portableMarkdown={documentRecord.portableMarkdown}
+              onPortableMetadataChange={updatePortableMetadata}
+              metadataWarning={metadataForWarning
+                ? getPortableMarkdownWarning(metadataForWarning)
+                : null}
+            />
+          )}
           {printError && <span role="status" className="text-xs text-red-700 dark:text-red-300">Printing is unavailable in this browser.</span>}
           <Tooltip delay={500}>
             <Button
@@ -903,16 +915,6 @@ export function EditorWorkspace() {
               <h2 id="preview-heading" className="text-sm font-medium text-foreground">Preview</h2>
               <span className="font-mono text-xs text-muted">Live</span>
             </div>
-            <DocumentSettingsControls
-              key={`settings-${documentRecord.id}`}
-              settings={documentRecord.settings}
-              onChange={updateDocumentSettings}
-              portableMarkdown={documentRecord.portableMarkdown}
-              onPortableMetadataChange={updatePortableMetadata}
-              metadataWarning={metadataForWarning
-                ? getPortableMarkdownWarning(metadataForWarning)
-                : null}
-            />
             <DocumentPreview
               key={`preview-${documentRecord.id}`}
               markdown={documentRecord.markdown}

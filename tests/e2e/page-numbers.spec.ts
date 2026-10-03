@@ -1,5 +1,15 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  expectSettingSelection,
+  setSwitch,
+  closeDocumentSettings,
+  setCheckbox,
+  openFileMenu,
+} from "./support";
 
 declare global {
   interface Window {
@@ -16,9 +26,11 @@ function pageNumbers(page: import("@playwright/test").Page) {
 
 test("page numbers are separate decorations and do not change pagination", async ({ page }) => {
   await page.goto("/editor");
-  await page.getByText("Margins", { exact: true }).click();
-  await page.getByLabel("Bottom").fill("0");
-  await page.getByText("Margins", { exact: true }).click();
+  await openDocumentSettings(page, "Margins");
+  const margins = page.getByRole("button", { name: "Margins", exact: true });
+  if (await margins.getAttribute("aria-expanded") !== "true") await margins.click();
+  await page.getByLabel("Bottom (mm)").fill("0");
+  await closeDocumentSettings(page);
   const content = ["# Long document", "", ...Array.from({ length: 90 }, (_, index) =>
     `Paragraph ${index + 1}: ${"A few words keep this document flowing across physical pages. ".repeat(2)}`,
   )].join("\n\n");
@@ -27,9 +39,10 @@ test("page numbers are separate decorations and do not change pagination", async
 
   const physicalPageCount = await page.getByRole("article").count();
   const pageCountBefore = physicalPageCount;
-  const settingsCheckbox = page.getByRole("checkbox", { name: "Show page numbers" });
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
+  const settingsCheckbox = page.getByRole("switch", { name: "Show page numbers" });
   await expect(settingsCheckbox).not.toBeChecked();
-  await settingsCheckbox.check();
+  await setSwitch(page, "Show page numbers", true);
   await expect(pageNumbers(page)).toHaveCount(pageCountBefore);
   expect(await pageNumbers(page).allTextContents()).toEqual(
     Array.from({ length: pageCountBefore }, (_, index) => String(index + 1)),
@@ -42,7 +55,7 @@ test("page numbers are separate decorations and do not change pagination", async
   const number = pageNumbers(page).first();
   const positions: Record<string, { left: number; right: number; center: number }> = {};
   for (const position of ["bottom-left", "bottom-center", "bottom-right"] as const) {
-    await page.getByLabel("Page number position").selectOption(position);
+    await selectSettingOption(page, "Page number position", position);
     positions[position] = await number.evaluate((element) => {
       const numberRect = element.getBoundingClientRect();
       const pageRect = element.closest("article")!.getBoundingClientRect();
@@ -62,6 +75,7 @@ test("page numbers are separate decorations and do not change pagination", async
   expect(positions["bottom-left"].left).toBeGreaterThanOrEqual(0);
   expect(positions["bottom-right"].right).toBeGreaterThanOrEqual(0);
 
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   await page.getByLabel("Page number start at").fill("999999");
   await expect(number).toHaveText("999999");
   const numberBox = await number.boundingBox();
@@ -73,7 +87,7 @@ test("page numbers are separate decorations and do not change pagination", async
   expect(numberBox!.y + numberBox!.height).toBeLessThanOrEqual(sheetBox!.y + sheetBox!.height);
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
 
-  await settingsCheckbox.uncheck();
+  await setSwitch(page, "Show page numbers", false);
   await expect(pageNumbers(page)).toHaveCount(0);
   expect(await page.getByRole("article").count()).toBe(pageCountBefore);
 });
@@ -81,17 +95,20 @@ test("page numbers are separate decorations and do not change pagination", async
 test("page number line stays centered in normal margins and safely inset for small margins", async ({ page }) => {
   await page.goto("/editor");
   await markdownEditor(page).fill("# Margin geometry\n\nA short page for measuring footer placement.");
-  await page.getByRole("checkbox", { name: "Show page numbers" }).check();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
+  await setSwitch(page, "Show page numbers", true);
   const number = pageNumbers(page).first();
   await expect(number).toHaveText("1");
   const pageCount = await page.getByRole("article").count();
 
   for (const bottomMargin of [20, 10, 5, 2, 0]) {
-    await page.getByText("Margins", { exact: true }).click();
-    const marginInput = page.getByLabel("Bottom");
+    await openDocumentSettings(page, "Margins");
+    const margins = page.getByRole("button", { name: "Margins", exact: true });
+    if (await margins.getAttribute("aria-expanded") !== "true") await margins.click();
+    const marginInput = page.getByLabel("Bottom (mm)");
     await marginInput.fill(String(bottomMargin));
     await expect(marginInput).toHaveValue(String(bottomMargin));
-    await page.getByText("Margins", { exact: true }).click();
+    await closeDocumentSettings(page);
     await expect.poll(() => number.evaluate((element) => {
       const decorations = element.closest(".page-decorations") as HTMLElement;
       return decorations.style.getPropertyValue("--page-margin-bottom");
@@ -157,7 +174,9 @@ test("startAt counts empty physical pages and print uses the visible page decora
     "# Third",
   ].join("\n"));
   await expect(page.getByRole("article", { name: "Page 3" })).toBeVisible();
-  await page.getByRole("checkbox", { name: "Show page numbers" }).check();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
+  await setSwitch(page, "Show page numbers", true);
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   await page.getByLabel("Page number start at").fill("5");
 
   await expect(pageNumbers(page)).toHaveCount(3);
@@ -165,6 +184,7 @@ test("startAt counts empty physical pages and print uses the visible page decora
   await expect(pageNumbers(page).nth(1)).toHaveText("6");
   await expect(pageNumbers(page).nth(2)).toHaveText("7");
   await expect(page.getByRole("article", { name: "Page 2, blank" })).toBeVisible();
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__docmarkPrintCalls)).toBe(1);
   await expect.poll(() => page.evaluate(() => window.__printedPageNumbers)).toEqual(["5", "6", "7"]);
@@ -224,28 +244,32 @@ test("portable page numbers restore from IndexedDB and Front Matter, and setting
     });
   }, source);
   await page.goto("/editor");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
 
-  await expect(page.getByLabel("Show page numbers")).toBeChecked();
-  await expect(page.getByLabel("Page number position")).toHaveValue("bottom-right");
+  await openDocumentSettings(page, "Page numbers");
+  await expect(page.getByRole("switch", { name: "Show page numbers" })).toBeChecked();
+  await expectSettingSelection(page, "Page number position", "Bottom right");
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   await expect(page.getByLabel("Page number start at")).toHaveValue("5");
   await expect(pageNumbers(page)).toHaveText(["5", "6"]);
 
-  await page.getByLabel("Page number position").selectOption("bottom-left");
+  await selectSettingOption(page, "Page number position", "bottom-left");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByLabel("Page size").selectOption("letter");
-  await page.getByLabel("Orientation").selectOption("landscape");
+  await selectSettingOption(page, "Page size", "letter");
+  await selectSettingOption(page, "Orientation", "landscape");
   await expect.poll(() => page.getByRole("article").first().evaluate((element) =>
     (element as HTMLElement).style.width,
   )).toBe("279.4mm");
   await expect(pageNumbers(page)).toHaveText(["5", "6"]);
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__printedPageNumbers)).toEqual(["5", "6"]);
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   await page.getByLabel("Page number start at").fill("9");
   await page.evaluate(() => window.__releasePageNumberWrite?.());
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(1);
@@ -255,29 +279,34 @@ test("portable page numbers restore from IndexedDB and Front Matter, and setting
   expect(saved).toContain("startAt: 5");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__numberedFileWrites?.[1] ?? "")).toContain("startAt: 9");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
 
-  await page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" }).uncheck();
+  await openDocumentSettings(page, "Markdown metadata");
+  await setCheckbox(page, "Include Docmark settings in Markdown", false);
+  await closeDocumentSettings(page);
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__numberedFileWrites?.length)).toBe(3);
   expect(await page.evaluate(() => window.__numberedFileWrites?.[2] ?? "")).not.toContain("docmark:");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
 
-  await page.getByLabel("Page number position").selectOption("bottom-right");
+  await selectSettingOption(page, "Page number position", "bottom-right");
   await expect(page.getByText("File saved", { exact: true })).toBeVisible();
   await expect(pageNumbers(page).first()).toBeVisible();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await closeDocumentSettings(page);
   await page.reload();
-  await expect(page.getByLabel("Show page numbers")).toBeChecked();
-  await expect(page.getByLabel("Page number position")).toHaveValue("bottom-right");
+  await openDocumentSettings(page, "Page numbers");
+  await expect(page.getByRole("switch", { name: "Show page numbers" })).toBeChecked();
+  await expectSettingSelection(page, "Page number position", "Bottom right");
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
   await expect(page.getByLabel("Page number start at")).toHaveValue("9");
-  await expect(page.getByLabel("Page size")).toHaveValue("letter");
-  await expect(page.getByLabel("Orientation")).toHaveValue("landscape");
+  await expectSettingSelection(page, "Page size", "Letter");
+  await expectSettingSelection(page, "Orientation", "Landscape");
   await expect(pageNumbers(page)).toHaveText(["9", "10"]);
 });

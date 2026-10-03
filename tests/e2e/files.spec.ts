@@ -1,7 +1,19 @@
-import { readFile } from "node:fs/promises";
+import {
+  readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
-import { activeDocumentSummary, chooseLocalMarkdown, forceFilePickerFallback, markdownEditor, renameActiveDocument, createNewDocument } from "./support";
+import { expect,
+  test } from "@playwright/test";
+import { activeDocumentSummary,
+  chooseLocalMarkdown,
+  forceFilePickerFallback,
+  markdownEditor,
+  renameActiveDocument,
+  createNewDocument,
+  openDocumentSettings,
+  selectSettingOption,
+  closeDocumentSettings,
+  openFileMenu,
+} from "./support";
 
 const fixturePath = (name: string) => resolve(process.cwd(), "tests", "fixtures", name);
 
@@ -27,12 +39,14 @@ test("fallback Open imports Markdown through the normal pipeline and Save round-
   await expect(markdownEditor(page)).toContainText(":::pagebreak");
   await expect(page.getByRole("article", { name: "Page 1" }).getByRole("heading", { name: "Architecture Report" })).toBeVisible();
 
-  await page.getByLabel("Page size").selectOption("letter");
-  await page.getByLabel("Orientation").selectOption("landscape");
-  await page.getByText("Margins", { exact: true }).click();
-  await page.getByLabel("Top").fill("21.5");
+  await selectSettingOption(page, "Page size", "letter");
+  await selectSettingOption(page, "Orientation", "landscape");
+  await openDocumentSettings(page, "Margins");
+  const margins = page.getByRole("button", { name: "Margins", exact: true });
+  if (await margins.getAttribute("aria-expanded") !== "true") await margins.click();
+  await page.getByLabel("Top (mm)").fill("21.5");
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -89,7 +103,7 @@ test("Save As keeps its document association and snapshot across typing and a sw
   await page.goto("/editor");
   await renameActiveDocument(page, "A");
   await markdownEditor(page).fill("# A snapshot before Save As");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save As…", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(window.__releaseFirstMarkdownWrite))).toBe(true);
@@ -101,20 +115,22 @@ test("Save As keeps its document association and snapshot across typing and a sw
   await page.evaluate(() => window.__releaseFirstMarkdownWrite?.());
   await expect.poll(() => page.evaluate(() => window.__mockMarkdownFiles?.["a.md"])).toBe("# A snapshot before Save As");
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__mockMarkdownFiles?.["b.md"])).toBe("# B private content");
   await expect.poll(() => page.evaluate(() => window.__savePickerNames?.length)).toBe(2);
 
+  await closeDocumentSettings(page);
   await activeDocumentSummary(page).click();
   await page.getByRole("button", { name: "A", exact: true }).click();
   await expect(markdownEditor(page)).toContainText("A typed while Save As is pending");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__mockMarkdownFiles?.["a.md"])).toBe("# A typed while Save As is pending");
   await expect.poll(() => page.evaluate(() => window.__savePickerNames?.length)).toBe(2);
 
+  await closeDocumentSettings(page);
   await activeDocumentSummary(page).click();
   const documentA = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: "A Active", exact: true }) });
   await documentA.getByRole("button", { name: /^Actions for / }).click();
@@ -123,7 +139,7 @@ test("Save As keeps its document association and snapshot across typing and a sw
     "aria-label",
     "Active document: A copy. Open document list",
   );
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__mockMarkdownFiles?.["a-copy.md"])).toBe("# A typed while Save As is pending");
   await expect.poll(() => page.evaluate(() => window.__savePickerNames?.length)).toBe(3);

@@ -1,5 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
-import { createNewDocument, markdownEditor, renameActiveDocument, switchToDocument } from "./support";
+import {
+  expect,
+  test,
+  type Page } from "@playwright/test";
+import { createNewDocument,
+  markdownEditor,
+  renameActiveDocument,
+  switchToDocument,
+  openDocumentSettings,
+  setSwitch,
+  closeDocumentSettings,
+} from "./support";
 
 declare global {
   interface Window {
@@ -24,8 +34,19 @@ async function mockClipboard(page: Page) {
 }
 
 async function readSource(page: Page): Promise<string> {
-  const lines = await markdownEditor(page).locator(".cm-line").allTextContents();
-  return lines.join("\n");
+  return markdownEditor(page).evaluate((editor) => {
+    const scroller = editor.closest(".cm-editor")?.querySelector(".cm-scroller");
+    if (!scroller) return "";
+
+    const viewport = scroller.getBoundingClientRect();
+    return Array.from(editor.querySelectorAll(".cm-line"))
+      .filter((line) => {
+        const bounds = line.getBoundingClientRect();
+        return bounds.height > 0 && bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+      })
+      .map((line) => line.textContent?.replace(/\u200b/g, "") ?? "")
+      .join("\n");
+  });
 }
 
 test("CodeMirror line numbers track logical lines, wrapping, scrolling, and long documents", async ({ page }) => {
@@ -70,9 +91,11 @@ test("Copy Markdown copies exact source with Mermaid and Cover, without dirtying
   await page.goto("/editor");
   const source = "# Report\n\n:::toc\n:::\n\nText\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n:::pagebreak\n:::";
   await markdownEditor(page).fill(source);
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await page.getByRole("textbox", { name: "Cover title" }).fill("Derived cover title");
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Copy Markdown" }).click();
   await expect(page.locator(".editor-toolbar [role=status]")).toContainText("Copied Markdown");
   await expect.poll(() => page.evaluate(() => window.__copiedMarkdown?.length)).toBe(1);

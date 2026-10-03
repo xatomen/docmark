@@ -1,5 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+} from "./support";
 
 test("CodeMirror edits Markdown and the sanitized preview updates", async ({ page }) => {
   await page.goto("/editor");

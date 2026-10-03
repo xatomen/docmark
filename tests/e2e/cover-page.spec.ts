@@ -1,5 +1,17 @@
-import { expect, test } from "@playwright/test";
-import { chooseLocalMarkdown, forceFilePickerFallback, markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { chooseLocalMarkdown,
+  forceFilePickerFallback,
+  markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  expectSettingSelection,
+  setSwitch,
+  setCheckbox,
+  openFileMenu,
+  closeDocumentSettings,
+} from "./support";
 
 declare global {
   interface Window {
@@ -12,11 +24,14 @@ test("cover is a physical page, renders literal text, and suppresses its decorat
   await page.goto("/editor");
   await expect(markdownEditor(page)).toBeVisible();
   await markdownEditor(page).fill("# Introduction\n\nCover test body");
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await page.getByRole("textbox", { name: "Cover title" }).fill("**Architecture** <script>safe</script>");
   await page.getByRole("textbox", { name: "Cover author" }).fill("Jorge");
-  await page.getByRole("checkbox", { name: "Show page numbers" }).check();
-  await page.getByRole("checkbox", { name: "Show header" }).check();
+  await openDocumentSettings(page, ["Cover", "Page numbers"]);
+  await setSwitch(page, "Show page numbers", true);
+  await openDocumentSettings(page, ["Cover", "Header & Footer"]);
+  await setSwitch(page, "Show header", true);
   await page.getByRole("textbox", { name: "Header text" }).fill("Shared header");
 
   const physicalPages = page.locator(".physical-page");
@@ -28,8 +43,10 @@ test("cover is a physical page, renders literal text, and suppresses its decorat
   await expect(physicalPages.nth(0).locator("[data-page-decoration], [data-page-number]")).toHaveCount(0);
   await expect(physicalPages.nth(1).locator("[data-page-number]")).toHaveText("1");
   await expect(physicalPages.nth(1).locator("[data-page-decoration=header]")).toHaveText("Shared header");
-  await page.getByRole("checkbox", { name: "Enable cover page" }).uncheck();
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", false);
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("**Architecture** <script>safe</script>");
 
   await page.emulateMedia({ media: "print" });
@@ -41,7 +58,8 @@ test("an enabled cover with an empty Markdown body is a single blank cover page"
   await page.goto("/editor");
   await expect(markdownEditor(page)).toBeVisible();
   await markdownEditor(page).fill("");
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await expect(page.locator(".physical-page")).toHaveCount(1);
   await expect(page.locator(".physical-page")).toHaveAttribute("data-page-kind", "cover");
   await expect(page.locator("[data-document-cover]")).toBeVisible();
@@ -51,19 +69,23 @@ test("cover settings persist across reload and duplicate, while TOC uses logical
   await page.goto("/editor");
   await expect(markdownEditor(page)).toBeVisible();
   await markdownEditor(page).fill("# Introduction\n\n:::toc\n:::");
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await page.getByRole("textbox", { name: "Cover title" }).fill("Physical cover");
   await expect(page.locator(".docmark-toc-page").first()).toHaveText("1");
   await expect(page.locator(".physical-page").first()).toHaveAttribute("data-page-kind", "cover");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: "Enable cover page" })).toBeChecked();
+  await openDocumentSettings(page, "Cover");
+  await expect(page.getByRole("switch", { name: "Enable cover page" })).toBeChecked();
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Physical cover");
 
+  await closeDocumentSettings(page);
   await page.locator('button[aria-label^="Active document:"]').click();
   await page.getByRole("button", { name: /^Actions for / }).first().click();
   await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
+  await openDocumentSettings(page, "Cover");
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Physical cover");
   await expect(page.locator(".physical-page").first()).toHaveAttribute("data-page-kind", "cover");
 });
@@ -72,14 +94,15 @@ test("cover follows theme and selected typography across paper sizes and orienta
   await page.goto("/editor");
   await expect(markdownEditor(page)).toBeVisible();
   await markdownEditor(page).fill("# Body");
-  await page.getByRole("checkbox", { name: "Enable cover page" }).check();
+  await openDocumentSettings(page, "Cover");
+  await setSwitch(page, "Enable cover page", true);
   await page.getByRole("textbox", { name: "Cover title" }).fill("A long cover title ".repeat(24));
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Font family", "Montserrat");
 
   for (const theme of ["default", "technical", "academic", "minimal"] as const) {
-    await page.getByLabel("Document theme").selectOption(theme);
+    await selectSettingOption(page, "Document theme", theme);
     await expect(page.locator(".document-cover-theme")).toHaveAttribute("data-docmark-theme", theme);
-    await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
+    await expectSettingSelection(page, "Font family", "Montserrat");
     await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   }
   const title = page.locator(".document-cover-title");
@@ -87,8 +110,8 @@ test("cover follows theme and selected typography across paper sizes and orienta
   expect(await title.evaluate((node) => getComputedStyle(node).textAlign)).toBe("center");
   expect(await title.evaluate((node) => getComputedStyle(node).fontFamily)).toContain("Montserrat");
 
-  await page.getByLabel("Page size").selectOption("letter");
-  await page.getByLabel("Orientation").selectOption("landscape");
+  await selectSettingOption(page, "Page size", "letter");
+  await selectSettingOption(page, "Orientation", "landscape");
   await expect.poll(() => page.locator(".physical-page").first().evaluate((node) => (node as HTMLElement).style.width)).toBe("279.4mm");
   await expect(page.locator(".physical-page").first()).toHaveAttribute("data-page-kind", "cover");
 });
@@ -98,11 +121,13 @@ test("portable cover Front Matter opens and saves while OFF leaves ordinary Mark
   await page.goto("/editor");
   const source = "---\ndocmark:\n  version: 1\n  cover:\n    enabled: true\n    title: Portable report\n    subtitle: Local draft\n    author: Jorge\n    organization: Example\n    date: '2026-10-02'\n---\n# Body";
   await chooseLocalMarkdown(page, "cover.md", source);
-  await expect(page.getByRole("checkbox", { name: "Enable cover page" })).toBeChecked();
+  await openDocumentSettings(page, "Cover");
+  await expect(page.getByRole("switch", { name: "Enable cover page" })).toBeChecked();
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Portable report");
   await expect(page.getByRole("textbox", { name: "Cover date" })).toHaveValue("2026-10-02");
   await page.getByRole("textbox", { name: "Cover subtitle" }).fill("Updated subtitle");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await closeDocumentSettings(page);
+  await openFileMenu(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -114,8 +139,10 @@ test("portable cover Front Matter opens and saves while OFF leaves ordinary Mark
   expect(saved).toContain("subtitle: Updated subtitle");
   expect(saved).toContain("# Body");
 
-  await page.getByRole("checkbox", { name: "Include Docmark settings in Markdown" }).uncheck();
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openDocumentSettings(page, "Markdown metadata");
+  await setCheckbox(page, "Include Docmark settings in Markdown", false);
+  await closeDocumentSettings(page);
+  await openFileMenu(page);
   const localDownloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const localDownload = await localDownloadPromise;
@@ -149,19 +176,22 @@ test("portable cover saves use the immutable settings snapshot", async ({ page }
     window.showOpenFilePicker = async () => [handle as FileSystemFileHandle];
   }, source);
   await page.goto("/editor");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open Markdown…", exact: true }).click();
+  await openDocumentSettings(page, "Cover");
   await expect(page.getByRole("textbox", { name: "Cover title" })).toHaveValue("Snapshot A");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await closeDocumentSettings(page);
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saving file…" })).toBeVisible();
+  await openDocumentSettings(page, "Cover");
   await page.getByRole("textbox", { name: "Cover title" }).fill("Snapshot B");
   await page.evaluate(() => window.__releaseCoverWrite?.());
   await expect.poll(() => page.evaluate(() => window.__coverWrites?.length)).toBe(1);
   expect(await page.evaluate(() => window.__coverWrites?.[0] ?? "")).toContain("title: Snapshot A");
   await expect(page.getByText("File modified", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__coverWrites?.length)).toBe(2);
   expect(await page.evaluate(() => window.__coverWrites?.[1] ?? "")).toContain("title: Snapshot B");

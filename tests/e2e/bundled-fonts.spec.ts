@@ -1,5 +1,13 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  expectSettingSelection,
+  setSwitch,
+  closeDocumentSettings,
+} from "./support";
 
 declare global {
   interface Window {
@@ -31,12 +39,14 @@ test("Montserrat is local, ready before pagination, shared with preview/print, a
     `\`\`\`ts\nconst longCodeLine = "${"wrap-safe-code-".repeat(40)}";\n\`\`\``,
     "| Name | Alpha | Beta | Gamma | Delta | Epsilon | Zeta |\n| --- | --- | --- | --- | --- | --- | --- |\n| Long row | one | two | three | four | five | six |",
   ].join("\n\n"));
-  await page.getByLabel("Show header").check();
+  await setSwitch(page, "Show header", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Header text").fill("Montserrat report");
-  await page.getByLabel("Show footer").check();
+  await setSwitch(page, "Show footer", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Footer text").fill("Local font");
-  await page.getByLabel("Show page numbers").check();
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await setSwitch(page, "Show page numbers", true);
+  await selectSettingOption(page, "Font family", "Montserrat");
 
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   const paragraph = page.locator(".physical-page .document-content p").first();
@@ -59,14 +69,15 @@ test("Montserrat is local, ready before pagination, shared with preview/print, a
   expect(fontRequests.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(true);
   expect(fontRequests.every((url) => url.includes("/fonts/montserrat/") && url.endsWith(".woff2"))).toBe(true);
 
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__printedFontFamily)).toContain("Montserrat");
 
-  await page.getByLabel("Page size").selectOption("a4");
-  await page.getByLabel("Orientation").selectOption("portrait");
+  await selectSettingOption(page, "Page size", "a4");
+  await selectSettingOption(page, "Orientation", "portrait");
   await expect.poll(() => page.locator(".physical-page").first().evaluate((element) => (element as HTMLElement).style.width)).toBe("210mm");
-  await page.getByLabel("Page size").selectOption("letter");
-  await page.getByLabel("Orientation").selectOption("landscape");
+  await selectSettingOption(page, "Page size", "letter");
+  await selectSettingOption(page, "Orientation", "landscape");
   await expect.poll(() => page.locator(".physical-page").first().evaluate((element) => (element as HTMLElement).style.width)).toBe("279.4mm");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   expect(await page.locator(".physical-page").first().evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
@@ -81,7 +92,7 @@ test("a failed bundled font load falls back to Arial and still enables print", a
   });
   await page.goto("/editor");
   await markdownEditor(page).fill("Fallback stays measurable.");
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Font family", "Montserrat");
   await expect(page.getByRole("status").filter({ hasText: "Montserrat could not be loaded" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Arial");
@@ -91,18 +102,19 @@ test("a failed bundled font load falls back to Arial and still enables print", a
 test("Montserrat survives IndexedDB reload and document duplication", async ({ page }) => {
   await page.goto("/editor");
   await markdownEditor(page).fill("Persistent bundled font.");
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Font family", "Montserrat");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
+  await expectSettingSelection(page, "Font family", "Montserrat");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");
 
+  await closeDocumentSettings(page);
   await page.getByLabel("Active document: Untitled document. Open document list").click();
   await page.getByRole("button", { name: /^Actions for / }).first().click();
   await page.getByRole("menuitem", { name: "Duplicate", exact: true }).click();
-  await expect(page.getByLabel("Font family")).toHaveValue("Montserrat");
+  await expectSettingSelection(page, "Font family", "Montserrat");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Montserrat");
 });
@@ -126,12 +138,12 @@ test("a late Montserrat load cannot overwrite a later system font selection", as
   });
   await page.goto("/editor");
   await markdownEditor(page).fill("Latest selection wins.");
-  await page.getByLabel("Font family").selectOption("Montserrat");
+  await selectSettingOption(page, "Font family", "Montserrat");
   await expect.poll(() => page.evaluate(() => window.__fontLoadingStarted)).toBe(true);
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
-  await page.getByLabel("Font family").selectOption("Georgia");
+  await selectSettingOption(page, "Font family", "Georgia");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await page.evaluate(() => window.__releaseFontLoading?.());
   await expect.poll(() => page.locator(".physical-page .document-content p").first().evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Georgia");
-  expect(await page.getByLabel("Font family").inputValue()).toBe("Georgia");
+  await expectSettingSelection(page, "Font family", "Georgia");
 });

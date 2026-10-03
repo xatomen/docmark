@@ -1,5 +1,13 @@
-import { expect, test } from "@playwright/test";
-import { markdownEditor } from "./support";
+import {
+  expect,
+  test } from "@playwright/test";
+import { markdownEditor,
+  openDocumentSettings,
+  selectSettingOption,
+  expectSettingSelection,
+  setSwitch,
+  closeDocumentSettings,
+} from "./support";
 
 declare global {
   interface Window {
@@ -22,25 +30,28 @@ test("headers, footers, collisions, and literal text stay on physical pages with
   await editor.fill(["# Multi-page report", "", ...Array.from({ length: 80 }, (_, i) => `Paragraph ${i + 1}: ${"content fills pages without decoration affecting measurement. ".repeat(2)}`)].join("\n\n"));
   await expect(page.getByRole("article", { name: "Page 2" })).toBeVisible();
   const count = await page.getByRole("article").count();
-  await page.getByLabel("Show header").check();
+  await setSwitch(page, "Show header", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Header text").fill("<script>window.__docmarkInjected = true</script>");
-  await page.getByLabel("Header alignment").selectOption("center");
-  await page.getByLabel("Show footer").check();
+  await selectSettingOption(page, "Header alignment", "center");
+  await setSwitch(page, "Show footer", true);
   await page.getByLabel("Footer text").fill("Internal use only");
-  await page.getByLabel("Footer alignment").selectOption("left");
-  await page.getByLabel("Show page numbers").check();
+  await selectSettingOption(page, "Footer alignment", "left");
+  await setSwitch(page, "Show page numbers", true);
   await expect(page.locator("[data-page-decoration=header]")).toHaveCount(count);
   await expect(page.locator("[data-page-decoration=footer]")).toHaveCount(count);
   await expect(page.locator("[data-page-number]")).toHaveCount(count);
   await expect(page.locator("[data-page-decoration=header]").first()).toHaveText("<script>window.__docmarkInjected = true</script>");
   expect(await page.evaluate(() => window.__docmarkInjected)).toBeUndefined();
   expect(await page.getByRole("article").count()).toBe(count);
+  await closeDocumentSettings(page);
   await expect.poll(() => page.locator(".page-decoration-text-center").first().evaluate((el) => {
     const text = el.getBoundingClientRect();
     const sheet = el.closest("article")!.getBoundingClientRect();
     return Math.abs((text.left + text.right) / 2 - (sheet.left + sheet.right) / 2);
   })).toBeLessThan(4);
 
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Footer text").fill(`Confidential-${"x".repeat(300)}`);
   const longTextBounds = await page.locator("[data-page-decoration=footer]").first().evaluate((el) => {
     const text = el.getBoundingClientRect();
@@ -51,11 +62,13 @@ test("headers, footers, collisions, and literal text stay on physical pages with
   expect(longTextBounds.right).toBeLessThanOrEqual(longTextBounds.pageRight);
   expect(longTextBounds.horizontalOverflow).toBe(false);
   expect(await page.getByRole("article").count()).toBe(count);
+  await closeDocumentSettings(page);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Footer text").fill("Internal use only");
 
   const footer = page.locator("[data-page-decoration=footer]").first();
-  await page.getByLabel("Footer alignment").selectOption("right");
-  await page.getByLabel("Page number position").selectOption("bottom-right");
+  await selectSettingOption(page, "Footer alignment", "right");
+  await selectSettingOption(page, "Page number position", "bottom-right");
   const collisionRects = await page.evaluate(() => {
     const text = document.querySelector("[data-page-decoration=footer]")!.getBoundingClientRect();
     const number = document.querySelector("[data-page-number]")!.getBoundingClientRect();
@@ -66,8 +79,9 @@ test("headers, footers, collisions, and literal text stay on physical pages with
   expect(collisionRects.text.right).toBeLessThanOrEqual(collisionRects.page.x + collisionRects.page.width);
   expect(footer).toBeVisible();
 
-  await page.getByLabel("Footer alignment").selectOption("center");
-  await page.getByLabel("Page number position").selectOption("bottom-center");
+  await closeDocumentSettings(page);
+  await selectSettingOption(page, "Footer alignment", "center");
+  await selectSettingOption(page, "Page number position", "bottom-center");
   const centerCollision = await page.evaluate(() => {
     const text = document.querySelector("[data-page-decoration=footer]")!.getBoundingClientRect();
     const number = document.querySelector("[data-page-number]")!.getBoundingClientRect();
@@ -75,31 +89,39 @@ test("headers, footers, collisions, and literal text stay on physical pages with
   });
   expect(centerCollision.textBottom).toBeLessThanOrEqual(centerCollision.numberTop + 1);
 
+  await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
   await expect.poll(() => page.evaluate(() => window.__decorationsAtPrint?.length)).toBe(count * 3);
   await expect.poll(() => page.locator("[data-page-decoration=header]").first().evaluate((el) => getComputedStyle(el.closest(".page-decorations")!).display)).not.toBe("none");
 
-  await page.getByLabel("Show header").uncheck();
+  await setSwitch(page, "Show header", false);
+  await openDocumentSettings(page, "Header & Footer");
   await expect(page.getByLabel("Header text")).toBeDisabled();
-  await page.getByLabel("Show header").check();
+  await closeDocumentSettings(page);
+  await setSwitch(page, "Show header", true);
+  await openDocumentSettings(page, "Header & Footer");
   await expect(page.getByLabel("Header text")).toHaveValue("<script>window.__docmarkInjected = true</script>");
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await closeDocumentSettings(page);
   await page.reload();
-  await expect(page.getByLabel("Header alignment")).toHaveValue("center");
-  await expect(page.getByLabel("Footer alignment")).toHaveValue("center");
+  await expectSettingSelection(page, "Header alignment", "Center");
+  await expectSettingSelection(page, "Footer alignment", "Center");
   await expect(page.locator("[data-page-decoration=header]")).toHaveCount(count);
 });
 
 test("header safe area tracks small top margins without changing the physical page count", async ({ page }) => {
   await page.goto("/editor");
-  await page.getByLabel("Show header").check();
+  await setSwitch(page, "Show header", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Header text").fill("Architecture Report");
   const count = await page.getByRole("article").count();
   for (const margin of [20, 10, 5, 2, 0]) {
-    await page.getByText("Margins", { exact: true }).click();
-    const input = page.getByLabel("Top");
+    await openDocumentSettings(page, "Header & Footer");
+    const margins = page.getByRole("button", { name: "Margins", exact: true });
+    if (await margins.getAttribute("aria-expanded") !== "true") await margins.click();
+    const input = page.getByLabel("Top (mm)");
     await input.fill(String(margin));
-    await page.getByText("Margins", { exact: true }).click();
+    if (await margins.getAttribute("aria-expanded") === "true") await margins.click();
     const metrics = await page.locator("[data-page-decoration=header]").first().evaluate((el) => {
       const zone = el.closest(".page-decoration-area") as HTMLElement;
       const sheet = el.closest("article") as HTMLElement;
@@ -119,11 +141,13 @@ test("decorations render on blank physical pages created by manual breaks", asyn
   await page.goto("/editor");
   await markdownEditor(page).fill(["# First", "", ":::pagebreak", ":::", "", ":::pagebreak", ":::", "", "# Third"].join("\n"));
   await expect(page.getByRole("article", { name: "Page 2, blank" })).toBeVisible();
-  await page.getByLabel("Show header").check();
+  await setSwitch(page, "Show header", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Header text").fill("Every page");
-  await page.getByLabel("Show footer").check();
+  await setSwitch(page, "Show footer", true);
+  await openDocumentSettings(page, "Header & Footer");
   await page.getByLabel("Footer text").fill("Internal");
-  await page.getByLabel("Show page numbers").check();
+  await setSwitch(page, "Show page numbers", true);
   const blankPage = page.getByRole("article", { name: "Page 2, blank" });
   await expect(blankPage.locator("[data-page-decoration=header]")).toHaveText("Every page");
   await expect(blankPage.locator("[data-page-decoration=footer]")).toHaveText("Internal");
