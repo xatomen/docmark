@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Button, Tooltip } from "@heroui/react";
+import { Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@heroui/react";
 import { Check, CircleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
@@ -70,6 +70,7 @@ const project = "Docmark";
 `;
 
 type PersistenceStatus = "loading" | "saved" | "saving" | "error";
+type WorkspaceView = "markdown" | "preview";
 
 type PendingSave = {
   document: DocmarkDocument;
@@ -165,6 +166,7 @@ function normalizeTitle(title: string): string {
 
 export function EditorWorkspace() {
   const [documentRecord, setDocumentRecord] = useState<DocmarkDocument | null>(null);
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState<WorkspaceView>("markdown");
   const [documents, setDocuments] = useState<DocmarkDocumentSummary[]>([]);
   const [persistenceStatus, setPersistenceStatus] =
     useState<PersistenceStatus>("loading");
@@ -886,6 +888,28 @@ export function EditorWorkspace() {
         </div>
       </header>
 
+      {!loading && documentRecord && (
+        <div className="workspace-view-switcher lg:hidden">
+          <ToggleButtonGroup
+            aria-label="Workspace view"
+            selectionMode="single"
+            disallowEmptySelection
+            selectedKeys={new Set([activeWorkspaceView])}
+            onSelectionChange={(keys) => {
+              const selectedView = keys.values().next().value;
+              if (selectedView === "markdown" || selectedView === "preview") {
+                setActiveWorkspaceView(selectedView);
+              }
+            }}
+            size="md"
+            className="w-full max-w-sm"
+          >
+            <ToggleButton id="markdown" className="flex-1">Markdown</ToggleButton>
+            <ToggleButton id="preview" className="flex-1">Preview</ToggleButton>
+          </ToggleButtonGroup>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid min-h-0 flex-1 place-items-center text-sm text-muted">
           <p role="status">{isSwitching || isManaging ? "Opening document…" : "Loading document…"}</p>
@@ -893,11 +917,12 @@ export function EditorWorkspace() {
       ) : documentRecord ? (
         <section
           aria-label="Document workspace"
-          className="workspace-shell grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2 md:gap-4 md:p-4 lg:gap-5 lg:p-5"
+          data-active-view={activeWorkspaceView}
+          className="workspace-shell relative min-h-0 flex-1 grid-cols-1 lg:grid lg:grid-cols-2 lg:gap-5 lg:p-5"
         >
           <section
             aria-labelledby="editor-heading"
-            className="editor-panel workspace-surface flex min-h-[50vh] flex-col md:min-h-0"
+            className="editor-panel workspace-surface flex min-h-0 flex-col"
           >
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-5 sm:px-6">
               <h1 id="editor-heading" className="text-sm font-medium text-foreground">Markdown</h1>
@@ -909,7 +934,7 @@ export function EditorWorkspace() {
 
           <section
             aria-labelledby="preview-heading"
-            className="preview-panel workspace-surface flex min-h-[50vh] flex-col md:min-h-0"
+            className="preview-panel workspace-surface flex min-h-0 flex-col"
           >
             <DocumentPreview
               key={`preview-${documentRecord.id}`}

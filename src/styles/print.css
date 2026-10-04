@@ -23,6 +23,7 @@
   }
 
   .app-header,
+  .workspace-view-switcher,
   .editor-panel,
   .preview-panel > :not(.preview-canvas) {
     display: none !important;
@@ -31,10 +32,13 @@
   .workspace-shell,
   .preview-panel {
     display: block !important;
+    position: static !important;
     width: auto !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
+    visibility: visible !important;
+    padding: 0 !important;
     border: 0 !important;
     background: #ffffff !important;
   }

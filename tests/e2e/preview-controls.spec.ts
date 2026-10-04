@@ -51,6 +51,9 @@ test("zoom stays in the viewer, Fit responds to resize, and print keeps physical
   await page.setViewportSize({ width: 900, height: 800 });
   await page.goto("/editor");
   await markdownEditor(page).fill("# First page\n\n:::pagebreak\n:::\n\n# Second page");
+  await page.getByRole("radiogroup", { name: "Workspace view" })
+    .getByRole("radio", { name: "Preview", exact: true })
+    .click();
   await expect(page.getByRole("article")).toHaveCount(2);
 
   const zoomControls = page.getByRole("group", { name: "Preview zoom controls" });
@@ -72,7 +75,7 @@ test("zoom stays in the viewer, Fit responds to resize, and print keeps physical
   await expect(page.getByRole("button", { name: "Fit" })).toHaveAttribute("aria-pressed", "true");
   const narrowFit = Number((await zoomValue.innerText()).replace("%", ""));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect.poll(async () => Number((await zoomValue.innerText()).replace("%", ""))).toBeGreaterThan(narrowFit);
+  await expect.poll(async () => Number((await zoomValue.innerText()).replace("%", ""))).toBeLessThan(narrowFit);
 
   await zoomControls.getByRole("button", { name: "Zoom in" }).click();
   await page.emulateMedia({ media: "print" });

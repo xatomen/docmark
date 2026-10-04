@@ -111,6 +111,41 @@
 }
 
 @layer components {
+  .docmark-app .workspace-view-switcher {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0.5rem 0.75rem;
+  }
+
+  @media screen and (max-width: 63.999rem) {
+    .docmark-app .workspace-shell {
+      position: relative;
+      display: block;
+      min-height: 0;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .docmark-app .workspace-shell > .editor-panel,
+    .docmark-app .workspace-shell > .preview-panel {
+      position: absolute;
+      inset: 0.75rem;
+      width: auto;
+      height: auto;
+      min-height: 0;
+      visibility: visible;
+    }
+
+    .docmark-app .workspace-shell[data-active-view="markdown"] > .preview-panel,
+    .docmark-app .workspace-shell[data-active-view="preview"] > .editor-panel {
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+
   @media screen {
     .docmark-app .workspace-surface {
       min-width: 0;
