@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Button, Tooltip } from "@heroui/react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { renderMarkdownDocument } from "@/lib/markdown/render-markdown";
 import { fitMermaidBlocks } from "@/lib/document/mermaid-geometry";
 import { paginateDocument } from "@/lib/document/pagination";
@@ -29,6 +31,7 @@ type DocumentPreviewProps = {
 };
 
 const PX_PER_MM = 96 / 25.4;
+const ZOOM_LEVELS = [50, 67, 75, 80, 90, 100, 110, 125, 150] as const;
 
 type TocHeading = { id: string; level: number; label: string };
 
@@ -122,9 +125,12 @@ export function DocumentPreview({
   const [pages, setPages] = useState<PhysicalPage[]>([
     { id: "page-1", kind: "content", html: "", isBlank: true, overflowPx: 0, headingIds: [] },
   ]);
-  const [scale, setScale] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
+  const [zoomMode, setZoomMode] = useState<"fit" | "manual">("fit");
+  const [manualZoomIndex, setManualZoomIndex] = useState(ZOOM_LEVELS.indexOf(100));
+  const [currentPage, setCurrentPage] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const firstPageRef = useRef<HTMLElement>(null);
+  const pageRefs = useRef<(HTMLElement | null)[]>([]);
   const renderedMeasurementRef = useRef<HTMLDivElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const paginationGeneration = useRef(0);
@@ -220,11 +226,13 @@ export function DocumentPreview({
         );
 
         if (tocMarkers.length === 0) {
-          setPages(composePhysicalPages(
+          const physicalPages = composePhysicalPages(
             paginateDocument(renderedContent, content, contentHeightPx),
             settings.cover.enabled,
             renderedContent.childNodes.length > 0,
-          ));
+          );
+          setPages(physicalPages);
+          setCurrentPage((current) => Math.min(current, Math.max(1, physicalPages.length)));
           setTocPasses(0);
         } else {
           const headings = readTocHeadings(renderedContent);
@@ -256,6 +264,7 @@ export function DocumentPreview({
             };
           }, initialPages);
           setPages(result.result);
+          setCurrentPage((current) => Math.min(current, Math.max(1, result.result.length)));
           setTocPasses(result.passes);
         }
         setPaginationError(false);
@@ -324,29 +333,94 @@ export function DocumentPreview({
 
   useEffect(() => {
     const viewport = viewportRef.current;
-    const page = firstPageRef.current;
+    if (!viewport) return;
+
+    const measureFitScale = () => {
+      const styles = window.getComputedStyle(viewport);
+      const horizontalPadding = Number.parseFloat(styles.paddingLeft) + Number.parseFloat(styles.paddingRight);
+      const availableWidth = viewport.clientWidth - horizontalPadding;
+      const pageWidth = dimensions.widthMm * PX_PER_MM;
+      if (availableWidth <= 0 || pageWidth <= 0) return;
+      const nextScale = Math.min(1, availableWidth / pageWidth);
+      setFitScale((current) => Math.abs(current - nextScale) < 0.001 ? current : nextScale);
+    };
+
+    const observer = new ResizeObserver(measureFitScale);
+    observer.observe(viewport);
+    measureFitScale();
+    return () => observer.disconnect();
+  }, [dimensions.widthMm]);
+
+  const pageIdentity = pages.map((page) => page.id).join("\u0000");
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const pageElements = pageRefs.current.slice(0, pages.length);
+    if (!viewport || pageElements.length === 0) return;
+
+    const pageIndexes = new Map(pageElements.map((element, index) => [element, index + 1]));
+    const visibleAreas = new Map<number, number>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const pageNumber = pageIndexes.get(entry.target as HTMLElement);
+        if (pageNumber !== undefined) {
+          visibleAreas.set(
+            pageNumber,
+            entry.isIntersecting ? entry.intersectionRect.width * entry.intersectionRect.height : 0,
+          );
+        }
+      }
+
+      let predominantPage = 0;
+      let predominantArea = 0;
+      for (const [pageNumber, area] of visibleAreas) {
+        if (area > predominantArea) {
+          predominantPage = pageNumber;
+          predominantArea = area;
+        }
+      }
+      if (predominantPage > 0) {
+        setCurrentPage((current) => current === predominantPage ? current : predominantPage);
+      }
+    }, {
+      root: viewport,
+      threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+    });
+
+    pageElements.forEach((element) => {
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, [pageIdentity, pages.length]);
+
+  const effectiveScale = zoomMode === "fit" ? fitScale : ZOOM_LEVELS[manualZoomIndex] / 100;
+  const zoomPercentage = Math.round(effectiveScale * 100);
+
+  const navigateToPage = useCallback((pageNumber: number) => {
+    const viewport = viewportRef.current;
+    const page = pageRefs.current[pageNumber - 1];
     if (!viewport || !page) return;
 
-    let active = true;
-    const measureScale = () => {
-      const width = page.offsetWidth;
-      if (!active || width <= 0) return;
-      const nextScale = Math.min(1, viewport.clientWidth / width);
-      setScale((current) =>
-        Math.abs(current - nextScale) < 0.001 ? current : nextScale,
-      );
-    };
-
-    const observer = new ResizeObserver(measureScale);
-    observer.observe(viewport);
-    observer.observe(page);
-    measureScale();
-
-    return () => {
-      active = false;
-      observer.disconnect();
-    };
+    const viewportBounds = viewport.getBoundingClientRect();
+    const styles = window.getComputedStyle(viewport);
+    const contentTop = viewportBounds.top + viewport.clientTop + Number.parseFloat(styles.paddingTop);
+    const top = viewport.scrollTop + page.getBoundingClientRect().top - contentTop;
+    viewport.scrollTo({
+      top,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    });
   }, []);
+
+  const changeZoom = (direction: -1 | 1) => {
+    const currentIndex = zoomMode === "manual"
+      ? manualZoomIndex
+      : ZOOM_LEVELS.reduce((closest, level, index) =>
+        Math.abs(level / 100 - fitScale) < Math.abs(ZOOM_LEVELS[closest] / 100 - fitScale) ? index : closest,
+      0);
+    const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + direction));
+    setManualZoomIndex(nextIndex);
+    setZoomMode("manual");
+  };
 
   const typographyStyle = {
     "--doc-font-family": getDocumentFontStack(
@@ -363,7 +437,7 @@ export function DocumentPreview({
     height: `${dimensions.heightMm}mm`,
     padding: `${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm`,
     marginLeft: `-${dimensions.widthMm / 2}mm`,
-    transform: `scale(${scale})`,
+    transform: `scale(${effectiveScale})`,
     transformOrigin: "top center",
     ...typographyStyle,
   } as CSSProperties;
@@ -374,35 +448,126 @@ export function DocumentPreview({
   const marginSummary = `${settings.margins.top}/${settings.margins.right}/${settings.margins.bottom}/${settings.margins.left} mm`;
   const printPageStyle = `@page { size: ${dimensions.widthMm}mm ${dimensions.heightMm}mm; margin: 0; }`;
   const displayPageNumbers = resolveDisplayPageNumbers(pages, settings.pageNumbers);
+  const displayedCurrentPage = pages.length > 0 ? Math.min(currentPage, pages.length) : 0;
 
   return (
-    <div
-      ref={viewportRef}
-      className="preview-canvas flex min-h-0 flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-7"
-    >
-      <style media="print">{printPageStyle}</style>
-      <div
-        className="page-list flex w-full shrink-0 flex-col items-center gap-[18px]"
-        data-toc-stabilization-passes={tocPasses}
-      >
-        {pages.map((page, index) => (
-          <div
-            key={page.id}
-            className="page-stage shrink-0"
-            style={{
-              width: `${physicalWidthPx * scale}px`,
-              height: `${(physicalHeightPx + page.overflowPx) * scale}px`,
-              "--page-width": `${dimensions.widthMm}mm`,
-              "--page-height": `${dimensions.heightMm}mm`,
-            } as CSSProperties}
-          >
-            <article
-              ref={index === 0 ? firstPageRef : undefined}
-              className={`physical-page${page.overflowPx > 0.5 ? " physical-page-overflow" : ""}`}
-              style={pageStyle}
-              aria-label={`Page ${index + 1}${page.isBlank ? ", blank" : ""}`}
-              data-page-kind={page.kind ?? "content"}
+    <>
+      <header className="preview-toolbar flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-2 sm:px-6">
+        <div className="flex items-center gap-3">
+          <h2 id="preview-heading" className="text-sm font-medium text-foreground">Preview</h2>
+          <span className="font-mono text-xs text-muted">Live</span>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+          <div role="group" aria-label={`Page ${displayedCurrentPage} of ${pages.length}`} className="flex items-center gap-1">
+            <Tooltip delay={500}>
+              <Button
+                isIconOnly
+                isDisabled={pages.length <= 1 || displayedCurrentPage <= 1}
+                aria-label="Previous page"
+                onPress={() => navigateToPage(Math.max(1, displayedCurrentPage - 1))}
+                variant="tertiary"
+                size="sm"
+                className="size-8 min-w-8 p-0 focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ChevronLeft aria-hidden="true" className="size-4" />
+              </Button>
+              <Tooltip.Content>Previous page</Tooltip.Content>
+            </Tooltip>
+            <span className="min-w-[3.5rem] text-center font-mono text-xs tabular-nums text-foreground">
+              <span className="sr-only">Page {displayedCurrentPage} of {pages.length}</span>
+              <span aria-hidden="true">{pages.length === 0 ? "—" : displayedCurrentPage} / {pages.length}</span>
+            </span>
+            <Tooltip delay={500}>
+              <Button
+                isIconOnly
+                isDisabled={pages.length <= 1 || displayedCurrentPage >= pages.length}
+                aria-label="Next page"
+                onPress={() => navigateToPage(Math.min(pages.length, displayedCurrentPage + 1))}
+                variant="tertiary"
+                size="sm"
+                className="size-8 min-w-8 p-0 focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </Button>
+              <Tooltip.Content>Next page</Tooltip.Content>
+            </Tooltip>
+          </div>
+
+          <span aria-hidden="true" className="h-5 w-px bg-border" />
+
+          <div role="group" aria-label="Preview zoom controls" className="flex items-center gap-1">
+            <Tooltip delay={500}>
+              <Button
+                isIconOnly
+                isDisabled={zoomPercentage <= ZOOM_LEVELS[0]}
+                aria-label="Zoom out"
+                onPress={() => changeZoom(-1)}
+                variant="tertiary"
+                size="sm"
+                className="size-8 min-w-8 p-0 focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ZoomOut aria-hidden="true" className="size-4" />
+              </Button>
+              <Tooltip.Content>Zoom out</Tooltip.Content>
+            </Tooltip>
+            <span className="min-w-[3rem] text-center font-mono text-xs tabular-nums text-foreground">
+              <span className="sr-only">Zoom {zoomPercentage}%</span>
+              <span aria-hidden="true">{zoomPercentage}%</span>
+            </span>
+            <Tooltip delay={500}>
+              <Button
+                isIconOnly
+                isDisabled={zoomPercentage >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+                aria-label="Zoom in"
+                onPress={() => changeZoom(1)}
+                variant="tertiary"
+                size="sm"
+                className="size-8 min-w-8 p-0 focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ZoomIn aria-hidden="true" className="size-4" />
+              </Button>
+              <Tooltip.Content>Zoom in</Tooltip.Content>
+            </Tooltip>
+            <Button
+              aria-pressed={zoomMode === "fit"}
+              onPress={() => setZoomMode("fit")}
+              variant="tertiary"
+              size="sm"
+              className="ms-1 h-8 min-w-10 px-2 text-xs aria-pressed:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
             >
+              Fit
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div
+        ref={viewportRef}
+        className="preview-canvas flex min-h-0 flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-7"
+      >
+        <style media="print">{printPageStyle}</style>
+        <div
+          className="page-list flex w-max min-w-full shrink-0 flex-col items-center gap-[18px]"
+          data-toc-stabilization-passes={tocPasses}
+        >
+          {pages.map((page, index) => (
+            <div
+              key={page.id}
+              className="page-stage shrink-0"
+              style={{
+                width: `${physicalWidthPx * effectiveScale}px`,
+                height: `${(physicalHeightPx + page.overflowPx) * effectiveScale}px`,
+                "--page-width": `${dimensions.widthMm}mm`,
+                "--page-height": `${dimensions.heightMm}mm`,
+              } as CSSProperties}
+            >
+              <article
+                ref={(element) => { pageRefs.current[index] = element; }}
+                className={`physical-page${page.overflowPx > 0.5 ? " physical-page-overflow" : ""}`}
+                style={pageStyle}
+                aria-label={`Page ${index + 1}${page.isBlank ? ", blank" : ""}`}
+                data-page-kind={page.kind ?? "content"}
+              >
               {page.kind === "cover" ? (
                 <div
                   className={`${documentThemeClass} document-cover-theme`}
@@ -428,10 +593,10 @@ export function DocumentPreview({
                 bottomMarginMm={settings.margins.bottom}
                 pageKind={page.kind ?? "content"}
               />
-            </article>
-          </div>
-        ))}
-      </div>
+              </article>
+            </div>
+          ))}
+        </div>
 
       <p className="page-caption mt-4 shrink-0 text-center font-mono text-[0.6875rem]">
         {settings.pageSize === "a4" ? "A4" : "Letter"} · {settings.orientation} ·{" "}
@@ -465,6 +630,7 @@ export function DocumentPreview({
           style={contentStyle}
         />
       </div>
-    </div>
+      </div>
+    </>
   );
 }

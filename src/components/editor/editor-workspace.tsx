@@ -911,10 +911,6 @@ export function EditorWorkspace() {
             aria-labelledby="preview-heading"
             className="preview-panel workspace-surface flex min-h-[50vh] flex-col md:min-h-0"
           >
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-5 sm:px-6">
-              <h2 id="preview-heading" className="text-sm font-medium text-foreground">Preview</h2>
-              <span className="font-mono text-xs text-muted">Live</span>
-            </div>
             <DocumentPreview
               key={`preview-${documentRecord.id}`}
               markdown={documentRecord.markdown}
