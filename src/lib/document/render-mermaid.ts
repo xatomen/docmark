@@ -1,6 +1,11 @@
 import mermaid from "mermaid";
 import DOMPurify from "dompurify";
 import type { MermaidDiagram } from "@/lib/markdown/render-markdown";
+import {
+  createMermaidSvgCacheKey,
+  getOrCreateSanitizedSvg,
+  getSanitizedMermaidSvgCache,
+} from "@/lib/document/mermaid-svg-cache";
 
 let initialized = false;
 let renderSequence = 0;
@@ -85,10 +90,52 @@ function sanitizeMermaidSvg(svg: string, renderId: string): string {
   return new XMLSerializer().serializeToString(root);
 }
 
+/** Rebase generated SVG IDs and internal references for each insertion. */
+function rebaseMermaidSvgIds(svg: string, renderId: string): string {
+  const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const root = parsed.documentElement;
+  if (root.localName !== "svg" || parsed.querySelector("parsererror")) {
+    throw new Error("Cached Mermaid SVG is invalid.");
+  }
+
+  const ids = new Map<string, string>();
+  let sequence = 0;
+  const elements = [root, ...Array.from(root.querySelectorAll("*"))];
+  for (const element of elements) {
+    const oldId = element.getAttribute("id");
+    if (!oldId) continue;
+    const newId = `${renderId}-node-${sequence++}`;
+    ids.set(oldId, newId);
+    element.setAttribute("id", newId);
+  }
+
+  const rewriteFragment = (value: string) => value.replace(/#([\w.-]+)/g, (match, id: string) => {
+    const rebased = ids.get(id);
+    return rebased ? `#${rebased}` : match;
+  });
+
+  for (const element of elements) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase();
+      if (name === "href" || name === "xlink:href") {
+        const rebased = ids.get(attribute.value.slice(1));
+        if (attribute.value.startsWith("#") && rebased) element.setAttribute(attribute.name, `#${rebased}`);
+      } else if (/url\s*\(/i.test(attribute.value)) {
+        element.setAttribute(attribute.name, rewriteFragment(attribute.value));
+      } else if (name === "aria-labelledby" || name === "aria-describedby") {
+        element.setAttribute(attribute.name, attribute.value.split(/\s+/).map((id) => ids.get(id) ?? id).join(" "));
+      }
+    }
+    if (element.localName === "style") element.textContent = rewriteFragment(element.textContent ?? "");
+  }
+  return new XMLSerializer().serializeToString(root);
+}
+
 /** Render and sanitize diagrams in order. Mermaid documents render() as serially queued. */
 export async function renderMermaidDiagrams(
   html: string,
   diagrams: MermaidDiagram[],
+  options: { isCurrent?: () => boolean } = {},
 ): Promise<string> {
   if (diagrams.length === 0) return html;
 
@@ -123,14 +170,26 @@ export async function renderMermaidDiagrams(
   if (!root) return html;
 
   for (const diagram of diagrams) {
+    if (options.isCurrent && !options.isCurrent()) {
+      return html;
+    }
     const marker = Array.from(root.querySelectorAll<HTMLElement>("[data-docmark-mermaid]"))
       .find((element) => element.getAttribute("data-docmark-mermaid") === diagram.id);
     if (!marker) continue;
 
     try {
       const renderId = `docmark-mermaid-render-${++renderSequence}`;
-      const { svg } = await mermaid.render(renderId, diagram.source);
-      const cleanSvg = sanitizeMermaidSvg(svg, renderId);
+      const cache = getSanitizedMermaidSvgCache();
+      const cacheKey = createMermaidSvgCacheKey(diagram.source);
+      const { svg: sanitizedSvg } = await getOrCreateSanitizedSvg(cache, cacheKey, async () => {
+        if (options.isCurrent && !options.isCurrent()) throw new Error("Stale Mermaid render.");
+        const { svg } = await mermaid.render(renderId, diagram.source);
+        return sanitizeMermaidSvg(svg, renderId);
+      });
+      if (options.isCurrent && !options.isCurrent()) {
+        return html;
+      }
+      const cleanSvg = rebaseMermaidSvgIds(sanitizedSvg, renderId);
       const container = parsed.createElement("div");
       container.className = "docmark-mermaid";
       container.setAttribute("role", "img");
@@ -145,6 +204,8 @@ export async function renderMermaidDiagrams(
       marker.replaceWith(error);
     }
   }
+
+  if (options.isCurrent && !options.isCurrent()) return html;
 
   for (const marker of Array.from(root.querySelectorAll("[data-docmark-mermaid]"))) {
     const error = parsed.createElement("div");

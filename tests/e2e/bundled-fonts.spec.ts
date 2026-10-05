@@ -140,7 +140,7 @@ test("a late Montserrat load cannot overwrite a later system font selection", as
   await markdownEditor(page).fill("Latest selection wins.");
   await selectSettingOption(page, "Font family", "Montserrat");
   await expect.poll(() => page.evaluate(() => window.__fontLoadingStarted)).toBe(true);
-  await expect(page.getByRole("button", { name: "Export PDF" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await selectSettingOption(page, "Font family", "Georgia");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
   await page.evaluate(() => window.__releaseFontLoading?.());

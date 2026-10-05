@@ -180,6 +180,8 @@ export function EditorWorkspace() {
   const [isManaging, setIsManaging] = useState(false);
   const [isWorkspaceTransitioning, setIsWorkspaceTransitioning] = useState(false);
   const documentRef = useRef<DocmarkDocument | null>(null);
+  const previewFlushRef = useRef<(() => void) | null>(null);
+  const pendingPrintRef = useRef<{ documentId: string; markdown: string } | null>(null);
   const documentRevisionRef = useRef(0);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingSaveRef = useRef<PendingSave | null>(null);
@@ -191,6 +193,43 @@ export function EditorWorkspace() {
   const fileAssociationsRef = useRef(new Map<string, RuntimeFileAssociation>());
   const deletedDocumentIdsRef = useRef(new Set<string>());
   const mountedRef = useRef(false);
+
+  const handlePaginationReady = useCallback((ready: boolean, renderedMarkdown?: string, failed = false) => {
+    const current = documentRef.current;
+    if (ready && current && renderedMarkdown !== current.markdown) return;
+    setPaginationReady(ready);
+
+    const pendingPrint = pendingPrintRef.current;
+    if (!pendingPrint) return;
+    if (!current || current.id !== pendingPrint.documentId || current.markdown !== pendingPrint.markdown) {
+      pendingPrintRef.current = null;
+      return;
+    }
+    if (failed && renderedMarkdown === pendingPrint.markdown) {
+      pendingPrintRef.current = null;
+      setPrintError(true);
+      return;
+    }
+    if (ready && renderedMarkdown === pendingPrint.markdown) {
+      pendingPrintRef.current = null;
+      try {
+        window.print();
+      } catch {
+        setPrintError(true);
+      }
+    }
+  }, []);
+
+  const registerPreviewFlush = useCallback((flush: (() => void) | null) => {
+    previewFlushRef.current = flush;
+    const pendingPrint = pendingPrintRef.current;
+    if (!flush || !pendingPrint) return;
+    if (documentRef.current?.id !== pendingPrint.documentId) {
+      pendingPrintRef.current = null;
+      return;
+    }
+    flush();
+  }, []);
 
   const enqueueOperation = useCallback(<T,>(operation: () => Promise<T>) => {
     const result = operationQueueRef.current
@@ -344,6 +383,7 @@ export function EditorWorkspace() {
   const updateMarkdown = useCallback((value: string) => {
     const current = documentRef.current;
     if (!current || current.markdown === value) return;
+    pendingPrintRef.current = null;
     setPaginationReady(false);
     const fileStatus = fileStatusById.get(current.id);
     if (fileStatus?.message) {
@@ -783,6 +823,13 @@ export function EditorWorkspace() {
       setPrintError(true);
       return;
     }
+    const current = documentRef.current;
+    if (!current) return;
+    if (!paginationReady) {
+      pendingPrintRef.current = { documentId: current.id, markdown: current.markdown };
+      previewFlushRef.current?.();
+      return;
+    }
     try {
       window.print();
     } catch {
@@ -880,7 +927,7 @@ export function EditorWorkspace() {
           <Tooltip delay={500}>
             <Button
               onPress={printDocument}
-              isDisabled={!documentRecord || !paginationReady}
+              isDisabled={!documentRecord || isWorkspaceTransitioning}
               variant="primary"
             >Export PDF</Button>
             <Tooltip.Content>Opens the browser print dialog; choose Save as PDF.</Tooltip.Content>
@@ -934,13 +981,15 @@ export function EditorWorkspace() {
 
           <section
             aria-labelledby="preview-heading"
+            aria-busy={!paginationReady}
             className="preview-panel workspace-surface flex min-h-0 flex-col"
           >
             <DocumentPreview
               key={`preview-${documentRecord.id}`}
               markdown={documentRecord.markdown}
               settings={documentRecord.settings}
-              onPaginationReady={setPaginationReady}
+              onPaginationReady={handlePaginationReady}
+              onRegisterPreviewFlush={registerPreviewFlush}
             />
           </section>
         </section>

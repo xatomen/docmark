@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Button, Tooltip } from "@heroui/react";
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { renderMarkdownDocument } from "@/lib/markdown/render-markdown";
@@ -23,11 +23,13 @@ import {
   type DocumentSettings,
 } from "@/lib/document/settings";
 import { getDocumentThemeDefinition } from "@/lib/document/themes";
+import { PreviewUpdateScheduler } from "@/lib/document/preview-update-scheduler";
 
 type DocumentPreviewProps = {
   markdown: string;
   settings: DocumentSettings;
-  onPaginationReady: (ready: boolean) => void;
+  onPaginationReady: (ready: boolean, renderedMarkdown?: string, failed?: boolean) => void;
+  onRegisterPreviewFlush: (flush: (() => void) | null) => void;
 };
 
 const PX_PER_MM = 96 / 25.4;
@@ -113,7 +115,10 @@ export function DocumentPreview({
   markdown,
   settings,
   onPaginationReady,
+  onRegisterPreviewFlush,
 }: DocumentPreviewProps) {
+  const [previewMarkdown, setPreviewMarkdown] = useState(markdown);
+  const [renderedMarkdown, setRenderedMarkdown] = useState<string | null>(null);
   const [html, setHtml] = useState("");
   const [renderError, setRenderError] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
@@ -122,6 +127,7 @@ export function DocumentPreview({
     status: "ready" | "fallback";
   } | null>(null);
   const [tocPasses, setTocPasses] = useState(0);
+  const [committedPagination, setCommittedPagination] = useState<{ generation: number; markdown: string } | null>(null);
   const [pages, setPages] = useState<PhysicalPage[]>([
     { id: "page-1", kind: "content", html: "", isBlank: true, overflowPx: 0, headingIds: [] },
   ]);
@@ -134,6 +140,9 @@ export function DocumentPreview({
   const renderedMeasurementRef = useRef<HTMLDivElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const paginationGeneration = useRef(0);
+  const previewUpdateScheduler = useRef(new PreviewUpdateScheduler<string>());
+  const previewMarkdownRef = useRef(markdown);
+  const latestSourceMarkdownRef = useRef(markdown);
   const dimensions = getPageDimensions(settings.pageSize, settings.orientation);
   const contentWidthMm =
     dimensions.widthMm - settings.margins.left - settings.margins.right;
@@ -147,6 +156,31 @@ export function DocumentPreview({
   const fontKey = `${fontFamily}:${fontSize}`;
   const currentFontReadiness = fontReadiness?.key === fontKey ? fontReadiness.status : null;
   const fontLoadFailed = currentFontReadiness === "fallback";
+
+  useLayoutEffect(() => {
+    latestSourceMarkdownRef.current = markdown;
+  }, [markdown]);
+
+  const applyPreviewMarkdown = useCallback((nextMarkdown: string) => {
+    previewMarkdownRef.current = nextMarkdown;
+    setPreviewMarkdown(nextMarkdown);
+  }, []);
+
+  const flushPendingPreview = useCallback(() => {
+    previewUpdateScheduler.current.flush(latestSourceMarkdownRef.current, applyPreviewMarkdown);
+  }, [applyPreviewMarkdown]);
+
+  useEffect(() => {
+    if (previewMarkdownRef.current === markdown) return;
+    const scheduler = previewUpdateScheduler.current;
+    scheduler.schedule(markdown, applyPreviewMarkdown);
+    return () => scheduler.cancel();
+  }, [applyPreviewMarkdown, markdown]);
+
+  useEffect(() => {
+    onRegisterPreviewFlush(flushPendingPreview);
+    return () => onRegisterPreviewFlush(null);
+  }, [flushPendingPreview, onRegisterPreviewFlush]);
 
   useEffect(() => {
     let active = true;
@@ -165,43 +199,48 @@ export function DocumentPreview({
 
   useEffect(() => {
     let active = true;
+    onPaginationReady(false, previewMarkdown);
 
-    onPaginationReady(false);
-
-    renderMarkdownDocument(markdown)
+    renderMarkdownDocument(previewMarkdown)
       .then(async ({ html: renderedHtml, mermaidDiagrams }) => {
         let resolvedHtml = renderedHtml;
         if (mermaidDiagrams.length) {
           try {
             const { renderMermaidDiagrams } = await import("@/lib/document/render-mermaid");
-            resolvedHtml = await renderMermaidDiagrams(renderedHtml, mermaidDiagrams);
+            resolvedHtml = await renderMermaidDiagrams(renderedHtml, mermaidDiagrams, {
+              isCurrent: () => active && latestSourceMarkdownRef.current === previewMarkdown,
+            });
           } catch {
             resolvedHtml = showMermaidLoadErrors(renderedHtml);
           }
         }
-        if (active) {
+        if (active && latestSourceMarkdownRef.current === previewMarkdown) {
           setHtml(resolvedHtml);
+          setRenderedMarkdown(previewMarkdown);
           setRenderError(false);
         }
       })
       .catch(() => {
-        if (active) setRenderError(true);
+        if (active) {
+          setRenderError(true);
+          onPaginationReady(false, previewMarkdown, true);
+        }
       });
 
     return () => {
       active = false;
     };
-  }, [markdown, onPaginationReady]);
+  }, [previewMarkdown, onPaginationReady]);
 
   useEffect(() => {
     const content = measurementRef.current;
     const renderedContent = renderedMeasurementRef.current;
-    if (!content || !renderedContent || renderError) return;
+    if (!content || !renderedContent || renderError || renderedMarkdown !== previewMarkdown) return;
 
     let active = true;
     const generation = ++paginationGeneration.current;
     if (!currentFontReadiness) {
-      onPaginationReady(false);
+      onPaginationReady(false, renderedMarkdown);
       return () => {
         active = false;
       };
@@ -215,7 +254,7 @@ export function DocumentPreview({
 
     const repaginate = () => {
       if (!active || generation !== paginationGeneration.current) return;
-      onPaginationReady(false);
+      onPaginationReady(false, renderedMarkdown);
       try {
         fitMermaidBlocks(renderedContent, {
           width: contentWidthMm * PX_PER_MM,
@@ -268,10 +307,10 @@ export function DocumentPreview({
           setTocPasses(result.passes);
         }
         setPaginationError(false);
-        onPaginationReady(true);
+        setCommittedPagination({ generation, markdown: renderedMarkdown });
       } catch {
         setPaginationError(true);
-        onPaginationReady(false);
+        onPaginationReady(false, renderedMarkdown, true);
       }
     };
 
@@ -299,7 +338,7 @@ export function DocumentPreview({
       .catch(() => {
         if (active && generation === paginationGeneration.current) {
           setPaginationError(true);
-          onPaginationReady(false);
+          onPaginationReady(false, renderedMarkdown, true);
         }
       });
 
@@ -309,6 +348,8 @@ export function DocumentPreview({
     };
   }, [
     html,
+    renderedMarkdown,
+    previewMarkdown,
     contentWidthMm,
     contentHeightMm,
     contentHeightPx,
@@ -330,6 +371,11 @@ export function DocumentPreview({
     onPaginationReady,
     renderError,
   ]);
+
+  useLayoutEffect(() => {
+    if (!committedPagination || committedPagination.generation !== paginationGeneration.current) return;
+    onPaginationReady(true, committedPagination.markdown);
+  }, [committedPagination, onPaginationReady, pages]);
 
   useEffect(() => {
     const viewport = viewportRef.current;

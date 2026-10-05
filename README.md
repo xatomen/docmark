@@ -20,6 +20,8 @@ No PDF-generation or local-storage libraries are used. Documents are stored in t
 
 The Markdown pipeline uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-sanitize`, and `rehype-stringify`. Mermaid diagrams use the local `mermaid` dependency and DOMPurify for their generated SVG boundary.
 
+The Markdown editor updates immediately while derived Preview work is debounced during active typing. Unchanged Mermaid sources reuse a bounded in-memory cache of sanitized SVG; edits to a diagram rerender only that source. Layout settings reuse the rendered diagrams and rerun pagination without reparsing Markdown or rendering Mermaid again.
+
 Markdown file Front Matter uses the `yaml` document API to validate Docmark metadata and update its namespace while preserving external fields and YAML comments.
 
 The editor uses CodeMirror 6 packages: `@codemirror/state`, `@codemirror/view`, `@codemirror/lang-markdown`, `@codemirror/language`, and `@codemirror/commands`.

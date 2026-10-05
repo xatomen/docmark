@@ -15,6 +15,7 @@ import { chooseLocalMarkdown,
 } from "./support";
 
 async function waitUntilReady(page: Page) {
+  await expect(page.locator(".preview-panel")).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
 }
 
@@ -28,6 +29,7 @@ test("renders Mermaid diagram types locally, sequentially, and keeps normal code
   await page.goto("/editor");
   const source = [
     "```mermaid", "flowchart LR", "A[Markdown] --> B[PDF]", "```", "",
+    "```mermaid", "flowchart LR", "A[Markdown] --> B[PDF]", "```", "",
     "```mermaid", "sequenceDiagram", "A->>B: Hello", "```", "",
     "```mermaid", "classDiagram", "class Account", "```", "",
     "```mermaid", "stateDiagram-v2", "[*] --> Ready", "```", "",
@@ -36,12 +38,14 @@ test("renders Mermaid diagram types locally, sequentially, and keeps normal code
   ].join("\n");
   await markdownEditor(page).fill(source);
 
-  await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(5);
+  await expect(page.locator("article .docmark-mermaid svg")).toHaveCount(6);
   await expect(page.locator("article pre code.language-javascript")).toContainText("const mermaid = true;");
   await expect(page.locator("article pre code")).not.toContainText("flowchart LR");
   await waitUntilReady(page);
   const svgIds = await page.locator("article .docmark-mermaid svg").evaluateAll((svgs) => svgs.map((svg) => svg.id));
-  expect(new Set(svgIds).size).toBe(5);
+  expect(new Set(svgIds).size).toBe(6);
+  const internalIds = await page.locator("article .docmark-mermaid svg [id]").evaluateAll((elements) => elements.map((element) => element.id));
+  expect(new Set(internalIds).size).toBe(internalIds.length);
   expect(externalRequests).toEqual([]);
 
   await page.evaluate(() => {
@@ -51,7 +55,7 @@ test("renders Mermaid diagram types locally, sequentially, and keeps normal code
   });
   await closeDocumentSettings(page);
   await page.getByRole("button", { name: "Export PDF" }).click();
-  await expect.poll(() => page.evaluate(() => (window as Window & { __printSvgCount?: number }).__printSvgCount)).toBe(5);
+  await expect.poll(() => page.evaluate(() => (window as Window & { __printSvgCount?: number }).__printSvgCount)).toBe(6);
   expect(await page.locator("article .docmark-mermaid svg").evaluateAll((svgs) => svgs.map((svg) => svg.id))).toEqual(svgIds);
 });
 

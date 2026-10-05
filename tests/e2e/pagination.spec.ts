@@ -76,7 +76,7 @@ test("page settings update physical dimensions and Export PDF calls print when r
   const pageOne = page.getByRole("article", { name: "Page 1" });
   const exportButton = page.getByRole("button", { name: "Export PDF" });
   await expect(markdownEditor(page)).toBeVisible();
-  await expect(exportButton).toBeDisabled();
+  await expect(exportButton).toBeEnabled();
   await page.evaluate(() => window.__releaseDocmarkFonts?.());
   await expect(pageOne).toBeVisible();
   await expect.poll(() => pageOne.evaluate((element) => (element as HTMLElement).style.width)).toBe("210mm");
