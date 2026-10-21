@@ -1,8 +1,64 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+const title = "Markdown to PDF Converter — Private & Local | Docmark";
+const description =
+  "Convert Markdown into polished PDF documents directly in your browser. Live preview, pagination, themes, Mermaid diagrams and no file uploads.";
+
+export const metadata: Metadata = {
+  title: { absolute: title },
+  description,
+  alternates: { canonical: "https://docmark.jorgegallardo.cl/" },
+  openGraph: {
+    type: "website",
+    siteName: "Docmark",
+    title,
+    description,
+    url: "https://docmark.jorgegallardo.cl/",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+};
+
+const webApplication = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Docmark",
+  url: "https://docmark.jorgegallardo.cl/",
+  description,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Any",
+  isAccessibleForFree: true,
+  offers: {
+    "@type": "Offer",
+    price: 0,
+    priceCurrency: "USD",
+  },
+  featureList: [
+    "Markdown editing",
+    "Live document preview",
+    "Browser print to PDF",
+    "Automatic pagination",
+    "Table of contents",
+    "Mermaid diagrams",
+    "Document themes",
+    "Local in-browser processing",
+  ],
+} as const;
 
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(webApplication).replace(/</g, "\\u003c"),
+        }}
+      />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
         <Link href="/" className="font-mono text-lg font-semibold tracking-tight">
           docmark<span className="text-accent">.</span>

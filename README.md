@@ -2,6 +2,8 @@
 
 Docmark is a local-first web application for creating polished documents from Markdown. It currently provides a CodeMirror 6 Markdown editor, GitHub Flavored Markdown processing, sanitized live preview, configurable physical pages, automatic pagination, manual page breaks, and browser-based printing.
 
+The public landing is canonical at `https://docmark.jorgegallardo.cl/`; `/editor` is available to users but marked `noindex, follow`. The sitemap lists only the landing. If an Open Graph image is added, place the final 1200 × 630 asset at `public/og/docmark.png` and add it to the landing Open Graph and Twitter metadata; no image is referenced until that file exists.
+
 ## Local-first philosophy
 
 Document content stays in the user's browser during the editing and print workflow. Markdown is parsed, transformed, sanitized, paginated, and sent to the browser's native print engine locally. `Export PDF` opens the browser print dialog; the user can select **Save as PDF** there. Docmark does not generate or upload a PDF through a server.

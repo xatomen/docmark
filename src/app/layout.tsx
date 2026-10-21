@@ -4,9 +4,12 @@ import "../styles/print.css";
 import "../styles/document/fonts.css";
 
 export const metadata: Metadata = {
-  title: "Docmark — Markdown to documents",
-  description:
-    "A local-first workspace for turning Markdown into polished documents.",
+  metadataBase: new URL("https://docmark.jorgegallardo.cl"),
+  applicationName: "Docmark",
+  title: {
+    default: "Docmark",
+    template: "%s | Docmark",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
