@@ -23,6 +23,7 @@
   }
 
   .app-header,
+  .app-footer,
   .workspace-view-switcher,
   .editor-panel,
   .preview-panel > :not(.preview-canvas) {

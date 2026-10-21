@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/site/site-footer";
 
 const title = "Markdown to PDF Converter — Private & Local | Docmark";
 const description =
@@ -92,10 +93,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="mx-auto flex w-full max-w-6xl items-center justify-between border-t border-border px-6 py-5 font-mono text-xs text-muted sm:px-10">
-        <span>DOCMARK / 001</span>
-        <span>Markdown in, documents out.</span>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

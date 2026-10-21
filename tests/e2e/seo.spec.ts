@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { markdownEditor } from "./support";
 
 const productionOrigin = "https://docmark.jorgegallardo.cl";
 const landingTitle = "Markdown to PDF Converter — Private & Local | Docmark";
@@ -86,8 +87,126 @@ test("robots and sitemap expose only the public production landing", async ({ re
   expect(robotsText).not.toMatch(/Disallow:\s*\/\s*(?:\r?\n|$)/);
 
   const sitemapText = await sitemapResponse.text();
-  expect(sitemapText).toContain("https://docmark.jorgegallardo.cl/");
+  const sitemapUrls = Array.from(sitemapText.matchAll(/<loc>([^<]+)<\/loc>/g), ([, url]) => url);
+  expect(sitemapUrls).toEqual([
+    "https://docmark.jorgegallardo.cl/",
+    "https://docmark.jorgegallardo.cl/about",
+    "https://docmark.jorgegallardo.cl/privacy",
+    "https://docmark.jorgegallardo.cl/contact",
+  ]);
   expect(sitemapText).not.toContain("/editor");
   expect(sitemapText).not.toMatch(/localhost|127\.0\.0\.1|\.workers\.dev/i);
   expect(sitemapText).not.toContain("<lastmod>");
+});
+
+test("informational pages have route-specific metadata and usable footer navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const pages = [
+    {
+      path: "/about",
+      title: "About Docmark | Docmark",
+      h1: "Markdown in. Documents out.",
+      canonical: `${productionOrigin}/about`,
+      description: "Learn how Docmark turns Markdown into paginated, print-ready documents in your browser, with local saving and browser-based PDF export.",
+    },
+    {
+      path: "/privacy",
+      title: "Privacy Policy | Docmark",
+      h1: "Privacy Policy",
+      canonical: `${productionOrigin}/privacy`,
+      description: "Read how Docmark handles Markdown documents, browser storage, PDF export, technical website requests, email, and external resources.",
+    },
+    {
+      path: "/contact",
+      title: "Contact Docmark | Docmark",
+      h1: "Get in touch.",
+      canonical: `${productionOrigin}/contact`,
+      description: "Contact the Docmark team for general questions, bug reports, feature suggestions, privacy questions, or help using Docmark.",
+    },
+  ];
+
+  for (const infoPage of pages) {
+    const response = await page.goto(infoPage.path);
+    expect(response).not.toBeNull();
+    const html = await response!.text();
+    expect(html).toContain(`<title>${infoPage.title}</title>`);
+    expect(html).toContain(`<meta name="description" content="${infoPage.description}"`);
+    expect(html).toContain(`<link rel="canonical" href="${infoPage.canonical}"`);
+    await expect(page.locator("h1")).toHaveText(infoPage.h1);
+    await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
+    await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+    await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  }
+
+  await page.goto("/about");
+  await expect(page.getByRole("list").filter({ has: page.getByText("Edit Markdown with a live document preview.") })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Open the Docmark editor" })).toHaveAttribute("href", "/editor");
+
+  await page.goto("/contact");
+  const contactCard = page.getByRole("region", { name: "Email Docmark" });
+  await expect(contactCard.getByRole("listitem")).toHaveCount(5);
+  const emailLink = contactCard.getByRole("link", { name: "contact@docmark.jorgegallardo.cl" });
+  await expect(emailLink).toHaveAttribute("href", "mailto:contact@docmark.jorgegallardo.cl");
+  await expect(page.getByRole("link", { name: "Privacy Policy", exact: true })).toHaveAttribute("href", "/privacy");
+  await expect(page.getByText(/requests to access, correct, or delete personal data/)).toBeVisible();
+
+  await page.goto("/privacy");
+  await expect(page.getByText(/stored in IndexedDB in your browser profile/)).toBeVisible();
+  await expect(page.getByText(/may request it directly from that host/)).toBeVisible();
+  const analyticsSection = page.getByRole("region", { name: "Cloudflare Web Analytics" });
+  await expect(analyticsSection.getByText(/enabled for the jorgegallardo\.cl zone with automatic installation/)).toBeVisible();
+  await expect(analyticsSection.getByRole("link", { name: "Web Analytics FAQ" })).toHaveAttribute(
+    "href",
+    "https://developers.cloudflare.com/web-analytics/faq/",
+  );
+  await expect(analyticsSection.getByRole("link", { name: "Privacy Policy", exact: true })).toHaveAttribute(
+    "href",
+    "https://www.cloudflare.com/policies/privacy/",
+  );
+  await expect(analyticsSection.getByText(/measures site use and performance through a browser beacon/)).toBeVisible();
+  await expect(analyticsSection).not.toContainText(/seven days|six months|Security Level Medium|Bot Fight Mode/);
+  await expect(page.getByText(/Web Analytics beacon does not use cookies/)).toBeVisible();
+  const emailSection = page.getByRole("region", { name: "Email communications" });
+  await expect(emailSection.getByRole("link", { name: "contact@docmark.jorgegallardo.cl" })).toHaveAttribute(
+    "href",
+    "mailto:contact@docmark.jorgegallardo.cl",
+  );
+  await expect(emailSection.getByText(/received through Cloudflare Email Routing and forwarded to Gmail/)).toBeVisible();
+  await expect(emailSection.getByText(/kept in Gmail as a history of inquiries and support conversations/)).toBeVisible();
+  await expect(emailSection.getByText(/no automatic deletion schedule is currently configured/)).toBeVisible();
+  await expect(emailSection.getByText(/Docmark has not verified their retention period/)).toBeVisible();
+  await expect(emailSection.getByText(/request access to, correction of, or deletion of personal data/)).toBeVisible();
+  await expect(emailSection.getByText(/reviewed under applicable law/)).toBeVisible();
+  await expect(emailSection.getByText(/may reasonably verify your identity when appropriate/)).toBeVisible();
+  await expect(emailSection.getByText(/does not guarantee immediate or complete deletion/)).toBeVisible();
+  await expect(emailSection.getByRole("link", { name: "Privacy Policy", exact: true }).nth(0)).toHaveAttribute(
+    "href",
+    "https://www.cloudflare.com/policies/privacy/",
+  );
+  await expect(emailSection.getByRole("link", { name: "Privacy Policy", exact: true }).nth(1)).toHaveAttribute(
+    "href",
+    "https://policies.google.com/privacy",
+  );
+  await expect(page.getByRole("heading", { name: "Details to confirm before publication" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Cloudflare’s cookies documentation" })).toHaveAttribute(
+    "href",
+    "https://developers.cloudflare.com/fundamentals/reference/policies-compliances/cloudflare-cookies/",
+  );
+});
+
+test("editor footer links are screen-only and stay out of printed documents", async ({ page }) => {
+  await page.goto("/editor");
+  const footer = page.locator(".app-footer");
+  await expect(footer).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  await markdownEditor(page).fill("# Print without application footer");
+  await expect(page.getByRole("article", { name: "Page 1" }).getByRole("heading", { name: "Print without application footer" })).toBeVisible();
+  await expect(page.locator(".physical-page .app-footer")).toHaveCount(0);
+
+  await page.emulateMedia({ media: "print" });
+  await expect(footer).toBeHidden();
+  expect(await footer.evaluate((element) => getComputedStyle(element).display)).toBe("none");
+  const pdf = await page.pdf({ printBackground: false, preferCSSPageSize: true });
+  expect(pdf.byteLength).toBeGreaterThan(1_000);
 });

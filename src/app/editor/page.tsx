@@ -1,5 +1,6 @@
 import { EditorWorkspace } from "@/components/editor/editor-workspace";
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/site/site-footer";
 
 export const metadata: Metadata = {
   title: { absolute: "Markdown Editor | Docmark" },
@@ -25,5 +26,10 @@ export const metadata: Metadata = {
 };
 
 export default function EditorPage() {
-  return <EditorWorkspace />;
+  return (
+    <>
+      <EditorWorkspace />
+      <SiteFooter />
+    </>
+  );
 }

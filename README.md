@@ -4,6 +4,8 @@ Docmark is a local-first web application for creating polished documents from Ma
 
 The public landing is canonical at `https://docmark.jorgegallardo.cl/`; `/editor` is available to users but marked `noindex, follow`. The sitemap lists only the landing. If an Open Graph image is added, place the final 1200 × 630 asset at `public/og/docmark.png` and add it to the landing Open Graph and Twitter metadata; no image is referenced until that file exists.
 
+The public information pages are `/about`, `/privacy`, and `/contact`; they are linked from the shared site footer and listed in the sitemap. The privacy policy describes the browser's IndexedDB workspace, browser-based print flow, possible requests for user-authored remote Markdown images, Cloudflare Web Analytics and security, and email routing to Gmail. Remaining verification items, including Cloudflare Email Routing record retention and legal review of jurisdiction-specific disclosures, are tracked in `docs/privacy-policy-owner-review.md`. Update the policy before adding advertising or measurement services beyond those currently disclosed.
+
 ## Local-first philosophy
 
 Document content stays in the user's browser during the editing and print workflow. Markdown is parsed, transformed, sanitized, paginated, and sent to the browser's native print engine locally. `Export PDF` opens the browser print dialog; the user can select **Save as PDF** there. Docmark does not generate or upload a PDF through a server.
