@@ -9,8 +9,14 @@ export async function openDocumentSettings(page: Page, section?: string | string
   if (!(await dialog.isVisible().catch(() => false))) {
     const documentList = page.getByRole("dialog", { name: "Documents" });
     const openMenu = page.getByRole("menu");
-    if (await documentList.isVisible().catch(() => false)) await activeDocumentSummary(page).click();
-    if (await openMenu.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+    if (await documentList.isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
+      await expect(documentList).toBeHidden();
+    }
+    if (await openMenu.isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
+      await expect(openMenu).toBeHidden();
+    }
     await page.getByRole("button", { name: "Document settings" }).click();
     await expect(dialog).toBeVisible();
   }
@@ -134,9 +140,15 @@ export async function setCheckbox(page: Page, label: string, selected: boolean):
 export async function openFileMenu(page: Page): Promise<void> {
   await closeDocumentSettings(page);
   const documentList = page.getByRole("dialog", { name: "Documents" });
-  if (await documentList.isVisible().catch(() => false)) await page.getByRole("button", { name: /Active document:.*Open document list/ }).click();
+  if (await documentList.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await expect(documentList).toBeHidden();
+  }
   const actionMenu = page.getByRole("menu");
-  if (await actionMenu.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+  if (await actionMenu.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await expect(actionMenu).toBeHidden();
+  }
   await page.getByRole("button", { name: "File", exact: true }).click();
 }
 

@@ -4,7 +4,7 @@ import { markdownEditor } from "./support";
 const productionOrigin = "https://docmark.jorgegallardo.cl";
 const landingTitle = "Markdown to PDF Converter — Private & Local | Docmark";
 const landingDescription =
-  "Convert Markdown into polished PDF documents directly in your browser. Live preview, pagination, themes, Mermaid diagrams and no file uploads.";
+  "Edit Markdown, preview paginated documents, render Mermaid diagrams, and export PDF through your browser’s print dialog with Docmark.";
 
 test("landing SEO metadata and WebApplication JSON-LD are in the initial HTML", async ({ page }) => {
   const response = await page.goto("/");
@@ -50,14 +50,31 @@ test("landing SEO metadata and WebApplication JSON-LD are in the initial HTML", 
     "Live document preview",
     "Browser print to PDF",
     "Automatic pagination",
+    "A4 and Letter page layouts",
+    "Typography and document themes",
+    "Headers, footers, and page numbering",
     "Table of contents",
     "Mermaid diagrams",
-    "Document themes",
-    "Local in-browser processing",
+    "Local document storage",
+    "Open and save Markdown files",
   ]));
 
   await expect(page.locator("h1")).toHaveCount(1);
-  await expect(page.getByRole("link", { name: /Open the editor/ })).toHaveAttribute("href", "/editor");
+  await expect(page.getByRole("link", { name: /Open the editor/ }).first()).toHaveAttribute("href", "/editor");
+  await expect(page.getByRole("heading", { level: 2, name: "Everything you need to go from Markdown to PDF" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "How it works" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Your documents, in your browser" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Frequently asked questions" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Give your Markdown a page." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Render Mermaid diagrams" })).toBeVisible();
+  await expect(page.locator("details")).toHaveCount(6);
+  await expect(page.getByRole("link", { name: "About Docmark" })).toHaveAttribute("href", "/about");
+  await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+  await expect(page.getByRole("link", { name: "Open the editor" }).last()).toHaveAttribute("href", "/editor");
+  expect(html).toContain("Docmark does not upload them to a document-conversion server");
+  expect(html).toContain("Cloudflare Web Analytics to measure site use and performance");
+  expect(html).toContain('"@type":"WebApplication"');
+  expect(html).not.toContain('"@type":"FAQPage"');
 });
 
 test("editor has route-specific canonical and noindex, follow in the initial HTML", async ({ page }) => {

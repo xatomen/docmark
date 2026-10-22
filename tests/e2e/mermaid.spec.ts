@@ -3,6 +3,7 @@ import {
 import { expect,
   test,
   type Page } from "@playwright/test";
+import { e2eOrigin } from "./runtime";
 import { chooseLocalMarkdown,
   createNewDocument,
   forceFilePickerFallback,
@@ -22,7 +23,7 @@ async function waitUntilReady(page: Page) {
 test("renders Mermaid diagram types locally, sequentially, and keeps normal code fences", async ({ page }) => {
   const externalRequests: string[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).origin !== "http://127.0.0.1:3100") {
+    if (new URL(request.url()).origin !== e2eOrigin) {
       externalRequests.push(request.url());
     }
   });
@@ -63,7 +64,7 @@ test("isolates invalid syntax, empty diagrams, and potentially unsafe diagram ma
   let scriptRan = false;
   const externalRequests: string[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).origin !== "http://127.0.0.1:3100") externalRequests.push(request.url());
+    if (new URL(request.url()).origin !== e2eOrigin) externalRequests.push(request.url());
   });
   await page.addInitScript(() => {
     Object.defineProperty(window, "__mermaidScriptRan", { value: false, writable: true });
