@@ -88,18 +88,63 @@ test("landing SEO metadata and WebSite/WebApplication JSON-LD are in the initial
   await expect(page.getByRole("link", { name: /Open the editor/ }).first()).toHaveAttribute("href", "/editor");
   await expect(page.getByRole("heading", { level: 2, name: "Everything you need to go from Markdown to PDF" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "How it works" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "step-by-step Markdown to PDF guide" })).toHaveAttribute("href", "/markdown-to-pdf");
   await expect(page.getByRole("heading", { level: 2, name: "Your documents, in your browser" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Frequently asked questions" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Give your Markdown a page." })).toBeVisible();
   await expect(page.getByRole("heading", { level: 3, name: "Render Mermaid diagrams" })).toBeVisible();
   await expect(page.locator("details")).toHaveCount(6);
   await expect(page.getByRole("link", { name: "About Docmark" })).toHaveAttribute("href", "/about");
+  await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Guide" })).toHaveAttribute("href", "/markdown-to-pdf");
   await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
   await expect(page.getByRole("link", { name: "Open the editor" }).last()).toHaveAttribute("href", "/editor");
   expect(html).toContain("Docmark does not upload them to a document-conversion server");
   expect(html).toContain("Cloudflare Web Analytics to measure site use and performance");
+  expect(html).toContain('href="/markdown-to-pdf"');
   expect(html).toContain('"@type":"WebApplication"');
   expect(html).not.toContain('"@type":"FAQPage"');
+});
+
+test("Markdown to PDF guide has useful initial content, metadata, and responsive navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto("/markdown-to-pdf");
+  expect(response).not.toBeNull();
+  const html = await response!.text();
+
+  const title = "How to Convert Markdown to PDF — Step-by-Step Guide | Docmark";
+  expect(html).toContain(`<title>${title}</title>`);
+  expect(html).toContain('<meta name="description" content="Learn how to turn Markdown into a PDF with Docmark. Follow a practical example, customize page layout, and export using your browser."');
+  expect(html).toContain(`<link rel="canonical" href="${productionOrigin}/markdown-to-pdf"`);
+  expect(html).toContain('<meta property="og:type" content="website"');
+  expect(html).toContain('<meta property="og:site_name" content="Docmark"');
+  expect(html).toContain(`<meta property="og:title" content="${title}"`);
+  expect(html).toContain(`<meta property="og:url" content="${productionOrigin}/markdown-to-pdf"`);
+  expect(html).toMatch(/<meta name="robots" content="(?:index, follow|follow, index)"/);
+  expect(html).not.toMatch(/localhost|127\.0\.0\.1|\.workers\.dev/i);
+  expect(jsonLdNodesFromHtml(html).filter((node) => node["@type"] === "WebSite")).toHaveLength(0);
+
+  await expect(page.locator("h1")).toHaveCount(1);
+  await expect(page.locator("h1")).toHaveText("How to Convert Markdown to PDF");
+  for (const heading of [
+    "Open the Markdown editor",
+    "Write your Markdown document",
+    "Try a short project brief",
+    "Customize the document",
+    "Export the PDF",
+    "Use advanced Markdown features",
+    "Understand local documents and privacy",
+  ]) {
+    await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+  }
+  await expect(page.getByRole("navigation", { name: "Guide sections" }).getByRole("link")).toHaveCount(7);
+  await expect(page.locator("pre").nth(0)).toContainText("# Weekly Project Brief");
+  await expect(page.locator("pre").nth(1)).toContainText(":::toc");
+  await expect(page.locator("pre").nth(2)).toContainText("flowchart LR");
+  await expect(page.locator("pre").nth(3)).toContainText(":::pagebreak");
+  await expect(page.getByRole("link", { name: "Try Docmark" })).toHaveAttribute("href", "/editor");
+  await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+  await expect(page.getByRole("link", { name: "Explore Docmark’s features" })).toHaveAttribute("href", "/");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test("editor has route-specific canonical and noindex, follow in the initial HTML", async ({ page }) => {
@@ -133,6 +178,7 @@ test("robots and sitemap expose only the public production landing", async ({ re
   const sitemapUrls = Array.from(sitemapText.matchAll(/<loc>([^<]+)<\/loc>/g), ([, url]) => url);
   expect(sitemapUrls).toEqual([
     "https://docmark.jorgegallardo.cl/",
+    "https://docmark.jorgegallardo.cl/markdown-to-pdf",
     "https://docmark.jorgegallardo.cl/about",
     "https://docmark.jorgegallardo.cl/privacy",
     "https://docmark.jorgegallardo.cl/contact",
@@ -178,6 +224,7 @@ test("informational pages have route-specific metadata and usable footer navigat
     expect(html).toContain(`<link rel="canonical" href="${infoPage.canonical}"`);
     await expect(page.locator("h1")).toHaveText(infoPage.h1);
     await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
+    await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Guide" })).toHaveAttribute("href", "/markdown-to-pdf");
     await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
     await expect(page.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -244,6 +291,7 @@ test("editor footer links are screen-only and stay out of printed documents", as
   const footer = page.locator(".app-footer");
   await expect(footer).toBeVisible();
   await expect(footer.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  await expect(footer.getByRole("link", { name: "Guide" })).toHaveAttribute("href", "/markdown-to-pdf");
   await markdownEditor(page).fill("# Print without application footer");
   await expect(page.getByRole("article", { name: "Page 1" }).getByRole("heading", { name: "Print without application footer" })).toBeVisible();
   await expect(page.locator(".physical-page .app-footer")).toHaveCount(0);
@@ -253,4 +301,13 @@ test("editor footer links are screen-only and stay out of printed documents", as
   expect(await footer.evaluate((element) => getComputedStyle(element).display)).toBe("none");
   const pdf = await page.pdf({ printBackground: false, preferCSSPageSize: true });
   expect(pdf.byteLength).toBeGreaterThan(1_000);
+});
+
+test("shared footer links to the guide from every available site surface", async ({ page }) => {
+  for (const path of ["/", "/about", "/privacy", "/contact", "/editor"]) {
+    await page.goto(path);
+    const footer = page.getByRole("navigation", { name: "Footer navigation" });
+    await expect(footer.getByRole("link")).toHaveText(["About", "Guide", "Privacy", "Contact"]);
+    await expect(footer.getByRole("link", { name: "Guide" })).toHaveAttribute("href", "/markdown-to-pdf");
+  }
 });

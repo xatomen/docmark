@@ -3,6 +3,7 @@ import styles from "./site-footer.module.css";
 
 const footerLinks = [
   { href: "/about", label: "About" },
+  { href: "/markdown-to-pdf", label: "Guide" },
   { href: "/privacy", label: "Privacy" },
   { href: "/contact", label: "Contact" },
 ] as const;

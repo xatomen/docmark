@@ -6,47 +6,15 @@
   color: var(--foreground);
 }
 
-.header {
-  display: flex;
-  width: min(100% - 3rem, 72rem);
-  min-height: 5rem;
-  align-items: center;
-  justify-content: space-between;
-  margin-inline: auto;
-}
-
-.wordmark {
-  color: var(--foreground);
-  font-family: var(--font-mono);
-  font-size: 1.125rem;
-  font-weight: 650;
-  letter-spacing: -0.04em;
-  text-decoration: none;
-}
-
-.wordmark span {
-  color: var(--accent);
-}
-
-.editorLink {
-  border-radius: 0.25rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  text-decoration: none;
-  transition: color 140ms ease;
-}
-
-.editorLink:hover,
-.editorLink:focus-visible {
-  color: var(--foreground);
-}
-
 .main {
   width: min(100% - 3rem, 46rem);
   flex: 1;
   margin-inline: auto;
   padding-block: clamp(2.75rem, 7vw, 5.75rem) 5rem;
+}
+
+.mainWide {
+  width: min(100% - 3rem, 72rem);
 }
 
 .eyebrow {
@@ -78,6 +46,10 @@
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.8;
+}
+
+.contentWide {
+  max-width: none;
 }
 
 .content p {
@@ -165,8 +137,6 @@
 }
 
 .link:focus-visible,
-.editorLink:focus-visible,
-.wordmark:focus-visible,
 .cta:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 4px;
@@ -242,13 +212,8 @@
 }
 
 @media (max-width: 40rem) {
-  .header,
   .main {
     width: min(100% - 2.25rem, 46rem);
-  }
-
-  .header {
-    min-height: 4.25rem;
   }
 
   .main {
@@ -268,7 +233,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .editorLink,
   .cta {
     transition: none;
   }

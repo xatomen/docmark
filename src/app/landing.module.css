@@ -97,6 +97,14 @@
   border-top: 1px solid var(--interactive-border);
 }
 
+.workflowGuide {
+  max-width: 64ch;
+  margin: 1.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
 .stepNumber {
   color: var(--accent);
   font-family: var(--font-mono);

@@ -1,7 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown, renderMarkdownDocument } from "@/lib/markdown/render-markdown";
+import {
+  PRACTICAL_GUIDE_MARKDOWN,
+  PRACTICAL_GUIDE_MERMAID,
+  PRACTICAL_GUIDE_PAGE_BREAK,
+  PRACTICAL_GUIDE_TOC,
+} from "@/lib/markdown/practical-guide-examples";
 
 describe("sanitized Markdown pipeline", () => {
+  it("renders the practical guide's Markdown example with the supported syntax", async () => {
+    const html = await renderMarkdown(PRACTICAL_GUIDE_MARKDOWN);
+
+    expect(html).toContain("<h1>Weekly Project Brief</h1>");
+    expect(html).toContain("<h2>Goal</h2>");
+    expect(html).toContain("<strong>project team</strong>");
+    expect(html).toContain("<em>Friday review</em>");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<table>");
+    expect(html).toContain("<pre><code class=\"language-js\">");
+  });
+
+  it("keeps the practical guide's TOC, Mermaid, and page-break examples aligned with Docmark", async () => {
+    const html = await renderMarkdown(`${PRACTICAL_GUIDE_TOC}\n\n${PRACTICAL_GUIDE_MARKDOWN}\n\n${PRACTICAL_GUIDE_PAGE_BREAK}`);
+    const renderedMermaid = await renderMarkdownDocument(`\`\`\`mermaid\n${PRACTICAL_GUIDE_MERMAID}\n\`\`\``);
+
+    expect(html).toContain('data-docmark-toc=""');
+    expect(html).toContain('data-docmark-page-break=""');
+    expect(renderedMermaid.mermaidDiagrams).toEqual([
+      { id: "mermaid-0", source: PRACTICAL_GUIDE_MERMAID },
+    ]);
+    expect(renderedMermaid.html).toContain('data-docmark-mermaid="mermaid-0"');
+  });
+
   it("renders common Markdown and GFM tables", async () => {
     const html = await renderMarkdown([
       "# Heading",

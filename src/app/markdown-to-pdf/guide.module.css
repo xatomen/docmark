@@ -1,0 +1,123 @@
+.lead {
+  max-width: 70ch;
+}
+
+.contents {
+  max-width: 74ch;
+  border-block: 1px solid var(--border);
+  padding-block: 1.25rem;
+}
+
+.contentsLabel {
+  margin: 0 0 0.75rem;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.contents ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contents a {
+  border-radius: 0.125rem;
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.22em;
+}
+
+.contents a:focus-visible,
+.codeBlock:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.section {
+  display: grid;
+  gap: 1rem;
+}
+
+.section > p,
+.section > ul,
+.section > ol {
+  max-width: 74ch;
+}
+
+.step {
+  margin: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.codeBlock {
+  max-width: 100%;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--docmark-radius-surface);
+  background: var(--surface);
+  padding: 1rem clamp(0.85rem, 2vw, 1.25rem);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+.codeBlock code {
+  white-space: pre;
+}
+
+.advancedFeature {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.callToAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+.callToAction p {
+  margin: 0.65rem 0 0;
+}
+
+.actionLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 40rem) {
+  .callToAction {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .actionLinks {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .codeBlock {
+    font-size: 0.8rem;
+  }
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import styles from "./landing.module.css";
 
@@ -137,14 +138,7 @@ export default function HomePage() {
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
-        <Link href="/" className="font-mono text-lg font-semibold tracking-tight">
-          docmark<span className="text-accent">.</span>
-        </Link>
-        <span className="rounded-full border border-border px-3 py-1 font-mono text-xs text-muted">
-          local-first · markdown to pdf
-        </span>
-      </header>
+      <SiteHeader />
 
       <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 pb-24 pt-12 sm:px-10">
         <p className="mb-6 font-mono text-xs uppercase tracking-[0.22em] text-accent">
@@ -221,6 +215,9 @@ export default function HomePage() {
               </div>
             </li>
           </ol>
+          <p className={styles.workflowGuide}>
+            New to Markdown? Read our <Link className={styles.inlineLink} href="/markdown-to-pdf">step-by-step Markdown to PDF guide</Link>.
+          </p>
         </div>
       </section>
 
@@ -269,7 +266,6 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
-
       <SiteFooter />
     </main>
   );
