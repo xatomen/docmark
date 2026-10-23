@@ -6,7 +6,22 @@ const landingTitle = "Markdown to PDF Converter — Private & Local | Docmark";
 const landingDescription =
   "Edit Markdown, preview paginated documents, render Mermaid diagrams, and export PDF through your browser’s print dialog with Docmark.";
 
-test("landing SEO metadata and WebApplication JSON-LD are in the initial HTML", async ({ page }) => {
+function jsonLdNodesFromHtml(html: string): Record<string, unknown>[] {
+  const blocks = Array.from(
+    html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi),
+    ([, json]) => JSON.parse(json) as Record<string, unknown>,
+  );
+
+  return blocks.flatMap((block) => {
+    const graph = block["@graph"];
+    if (!Array.isArray(graph)) return [block];
+    return graph.filter(
+      (node): node is Record<string, unknown> => typeof node === "object" && node !== null && !Array.isArray(node),
+    );
+  });
+}
+
+test("landing SEO metadata and WebSite/WebApplication JSON-LD are in the initial HTML", async ({ page }) => {
   const response = await page.goto("/");
   expect(response).not.toBeNull();
   const html = await response!.text();
@@ -31,11 +46,21 @@ test("landing SEO metadata and WebApplication JSON-LD are in the initial HTML", 
   expect(html).toContain('<html lang="en"');
   expect(html).not.toMatch(/localhost|127\.0\.0\.1|\.workers\.dev/i);
 
-  const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-  expect(jsonLdMatch).not.toBeNull();
-  const jsonLd = JSON.parse(jsonLdMatch![1]) as Record<string, unknown>;
-  expect(jsonLd).toMatchObject({
-    "@context": "https://schema.org",
+  const jsonLdNodes = jsonLdNodesFromHtml(html);
+  expect(html).toContain('"@context":"https://schema.org"');
+  const webSites = jsonLdNodes.filter((node) => node["@type"] === "WebSite");
+  expect(webSites).toHaveLength(1);
+  expect(webSites[0]).toMatchObject({
+    "@type": "WebSite",
+    name: "Docmark",
+    alternateName: "docmark.jorgegallardo.cl",
+    url: `${productionOrigin}/`,
+  });
+
+  const webApplications = jsonLdNodes.filter((node) => node["@type"] === "WebApplication");
+  expect(webApplications).toHaveLength(1);
+  const webApplication = webApplications[0];
+  expect(webApplication).toMatchObject({
     "@type": "WebApplication",
     name: "Docmark",
     url: `${productionOrigin}/`,
@@ -45,7 +70,7 @@ test("landing SEO metadata and WebApplication JSON-LD are in the initial HTML", 
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
   });
-  expect(jsonLd.featureList).toEqual(expect.arrayContaining([
+  expect(webApplication.featureList).toEqual(expect.arrayContaining([
     "Markdown editing",
     "Live document preview",
     "Browser print to PDF",
@@ -87,6 +112,7 @@ test("editor has route-specific canonical and noindex, follow in the initial HTM
   expect(html).toContain(`<link rel="canonical" href="${productionOrigin}/editor"`);
   expect(html).toContain('<meta property="og:url" content="https://docmark.jorgegallardo.cl/editor"');
   expect(html).not.toContain("noindex, nofollow");
+  expect(jsonLdNodesFromHtml(html).filter((node) => node["@type"] === "WebSite")).toHaveLength(0);
 });
 
 test("robots and sitemap expose only the public production landing", async ({ request }) => {
@@ -146,6 +172,7 @@ test("informational pages have route-specific metadata and usable footer navigat
     const response = await page.goto(infoPage.path);
     expect(response).not.toBeNull();
     const html = await response!.text();
+    expect(jsonLdNodesFromHtml(html).filter((node) => node["@type"] === "WebSite")).toHaveLength(0);
     expect(html).toContain(`<title>${infoPage.title}</title>`);
     expect(html).toContain(`<meta name="description" content="${infoPage.description}"`);
     expect(html).toContain(`<link rel="canonical" href="${infoPage.canonical}"`);

@@ -27,7 +27,6 @@ export const metadata: Metadata = {
 };
 
 const webApplication = {
-  "@context": "https://schema.org",
   "@type": "WebApplication",
   name: "Docmark",
   url: "https://docmark.jorgegallardo.cl/",
@@ -53,6 +52,18 @@ const webApplication = {
     "Local document storage",
     "Open and save Markdown files",
   ],
+} as const;
+
+const webSite = {
+  "@type": "WebSite",
+  name: "Docmark",
+  alternateName: "docmark.jorgegallardo.cl",
+  url: "https://docmark.jorgegallardo.cl/",
+} as const;
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [webSite, webApplication],
 } as const;
 
 const features = [
@@ -123,7 +134,7 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(webApplication).replace(/</g, "\\u003c"),
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
