@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDocmarkEnvironment, getEnvironmentConfig } from "./environment";
+import { getDocmarkEnvironment, getEnvironmentConfig } from "./environment.mjs";
 
 describe("Docmark environment configuration", () => {
   it("defaults local commands to production-compatible behavior", () => {

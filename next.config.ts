@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { getEnvironmentConfig } from "./src/lib/environment";
+import { getEnvironmentConfig } from "./src/lib/environment.mjs";
 
 const environment = getEnvironmentConfig();
 

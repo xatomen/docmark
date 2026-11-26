@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getEnvironmentConfig } from "@/lib/environment";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const environment = getEnvironmentConfig();

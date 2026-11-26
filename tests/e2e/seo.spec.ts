@@ -105,6 +105,13 @@ test("landing SEO metadata and WebSite/WebApplication JSON-LD are in the initial
   expect(html).not.toContain('"@type":"FAQPage"');
 });
 
+test("production headers do not show the DEV environment badge", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".environment-badge")).toHaveCount(0);
+  await page.goto("/editor");
+  await expect(page.locator(".environment-badge")).toHaveCount(0);
+});
+
 test("Markdown to PDF guide has useful initial content, metadata, and responsive navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto("/markdown-to-pdf");

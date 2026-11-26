@@ -9,7 +9,7 @@ import {
   PRACTICAL_GUIDE_TOC,
 } from "@/lib/markdown/practical-guide-examples";
 import styles from "./guide.module.css";
-import { getEnvironmentConfig } from "@/lib/environment";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
 const env = getEnvironmentConfig();
 
 const title = "How to Convert Markdown to PDF — Step-by-Step Guide | Docmark";
@@ -21,15 +21,15 @@ export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: env.isIndexable ? { canonical } : undefined,
-  openGraph: {
+  openGraph: env.isIndexable ? {
     type: "website",
     siteName: "Docmark",
     title,
     description,
     url: canonical,
     locale: "en_US",
-  },
-  robots: env.isIndexable ? { index: true, follow: true } : undefined,
+  } : undefined,
+  robots: env.isIndexable ? { index: true, follow: true } : { index: false, follow: false },
 };
 
 const mermaidFence = ["```mermaid", PRACTICAL_GUIDE_MERMAID, "```"].join("\n");

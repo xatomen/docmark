@@ -1,7 +1,7 @@
 import { EditorWorkspace } from "@/components/editor/editor-workspace";
 import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site/site-footer";
-import { getEnvironmentConfig } from "@/lib/environment";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
 const env = getEnvironmentConfig();
 
 export const metadata: Metadata = {
@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description:
     "Write Markdown, preview paginated documents, customize typography and themes, and print to PDF locally in your browser.",
   alternates: env.isIndexable ? { canonical: `${env.siteUrl}/editor` } : undefined,
-  robots: env.isIndexable ? { index: false, follow: true } : undefined,
-  openGraph: {
+  robots: env.isIndexable ? { index: false, follow: true } : { index: false, follow: false },
+  openGraph: env.isIndexable ? {
     type: "website",
     siteName: "Docmark",
     title: "Markdown Editor | Docmark",
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
       "Write Markdown, preview paginated documents, customize typography and themes, and print to PDF locally in your browser.",
     url: `${env.siteUrl}/editor`,
     locale: "en_US",
-  },
-  twitter: {
+  } : undefined,
+  twitter: env.isIndexable ? {
     card: "summary_large_image",
     title: "Markdown Editor | Docmark",
     description:
       "Write Markdown, preview paginated documents, customize typography and themes, and print to PDF locally in your browser.",
-  },
+  } : undefined,
 };
 
 export default function EditorPage() {

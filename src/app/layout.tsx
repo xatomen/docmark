@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "../styles/print.css";
 import "../styles/document/fonts.css";
-import { getEnvironmentConfig } from "@/lib/environment";
-import type { Viewport } from "next";
+import { environmentBuildMarker, getEnvironmentConfig } from "@/lib/environment.mjs";
 
 const environment = getEnvironmentConfig();
 
@@ -17,12 +16,10 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = { themeColor: "#ffffff" };
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col" data-docmark-build={environmentBuildMarker}>{children}</body>
     </html>
   );
 }

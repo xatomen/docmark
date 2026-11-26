@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InformationalPage } from "@/components/site/informational-page";
 import styles from "@/components/site/informational-page.module.css";
-import { getEnvironmentConfig } from "@/lib/environment";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
 const env = getEnvironmentConfig();
 
 const title = "Contact Docmark | Docmark";
@@ -13,14 +13,15 @@ export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: env.isIndexable ? { canonical: `${env.siteUrl}/contact` } : undefined,
-  openGraph: {
+  robots: env.isIndexable ? undefined : { index: false, follow: false },
+  openGraph: env.isIndexable ? {
     type: "website",
     siteName: "Docmark",
     title,
     description,
     url: `${env.siteUrl}/contact`,
     locale: "en_US",
-  },
+  } : undefined,
 };
 
 export default function ContactPage() {

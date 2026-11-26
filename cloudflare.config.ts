@@ -1,10 +1,7 @@
 import { bindings, defineConfig, defineWorker } from "cf/config";
+import { getEnvironmentConfig } from "./src/lib/environment.mjs";
 
-const environment = process.env.DOCMARK_ENV;
-if (environment !== undefined && environment !== "dev" && environment !== "prod") {
-  throw new Error(`Invalid DOCMARK_ENV: ${environment}. Expected "dev" or "prod".`);
-}
-const workerName = environment === "dev" ? "docmark-dev" : "docmark";
+const { workerName } = getEnvironmentConfig();
 
 export default defineConfig({
   worker: defineWorker({
