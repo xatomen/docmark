@@ -9,6 +9,7 @@ import { DocumentSwitcher } from "@/components/editor/document-switcher";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { DocumentPreview } from "@/components/preview/document-preview";
 import { DocumentSettingsControls } from "@/components/preview/document-settings-controls";
+import { EnvironmentBadge } from "@/components/site/environment-badge";
 import {
   createDocmarkDocument,
   DEFAULT_DOCUMENT_TITLE,
@@ -873,6 +874,7 @@ export function EditorWorkspace() {
           <Link href="/" className="shrink-0 font-mono text-lg font-semibold tracking-tight">
             docmark<span className="text-accent">.</span>
           </Link>
+          <EnvironmentBadge />
           <span className="hidden h-5 border-l border-border sm:block" />
           {currentDocument ? (
             <DocumentSwitcher

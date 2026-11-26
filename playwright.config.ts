@@ -33,6 +33,9 @@ export default defineConfig({
     baseURL: e2eBaseURL,
     browserName: "chromium",
     headless: true,
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -41,6 +44,7 @@ export default defineConfig({
     url: `${e2eBaseURL}/editor`,
     env: {
       ...process.env,
+      DOCMARK_ENV: "prod",
       DOCMARK_NEXT_DIST_DIR: process.env.DOCMARK_NEXT_DIST_DIR ?? ".next-e2e",
     },
     reuseExistingServer: false,

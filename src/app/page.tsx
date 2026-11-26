@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import styles from "./landing.module.css";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
+
+const siteUrl = getEnvironmentConfig().siteUrl;
 
 const title = "Markdown to PDF Converter — Private & Local | Docmark";
 const description =
@@ -11,26 +14,27 @@ const description =
 export const metadata: Metadata = {
   title: { absolute: title },
   description,
-  alternates: { canonical: "https://docmark.jorgegallardo.cl/" },
-  openGraph: {
+  alternates: getEnvironmentConfig().isIndexable ? { canonical: `${siteUrl}/` } : undefined,
+  robots: getEnvironmentConfig().isIndexable ? undefined : { index: false, follow: false },
+  openGraph: getEnvironmentConfig().isIndexable ? {
     type: "website",
     siteName: "Docmark",
     title,
     description,
-    url: "https://docmark.jorgegallardo.cl/",
+    url: `${siteUrl}/`,
     locale: "en_US",
-  },
-  twitter: {
+  } : undefined,
+  twitter: getEnvironmentConfig().isIndexable ? {
     card: "summary_large_image",
     title,
     description,
-  },
+  } : undefined,
 };
 
 const webApplication = {
   "@type": "WebApplication",
   name: "Docmark",
-  url: "https://docmark.jorgegallardo.cl/",
+  url: `${siteUrl}/`,
   description,
   applicationCategory: "UtilitiesApplication",
   operatingSystem: "Any",
@@ -59,7 +63,7 @@ const webSite = {
   "@type": "WebSite",
   name: "Docmark",
   alternateName: "docmark.jorgegallardo.cl",
-  url: "https://docmark.jorgegallardo.cl/",
+  url: `${siteUrl}/`,
 } as const;
 
 const structuredData = {
@@ -132,12 +136,12 @@ const faqs = [
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col bg-background text-foreground">
-      <script
+      {getEnvironmentConfig().isIndexable && <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
-      />
+      />}
       <SiteHeader />
 
       <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-6 pb-24 pt-12 sm:px-10">
