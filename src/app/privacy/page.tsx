@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { InformationalPage } from "@/components/site/informational-page";
 import styles from "@/components/site/informational-page.module.css";
+import { getEnvironmentConfig } from "@/lib/environment";
+const env = getEnvironmentConfig();
 
 const title = "Privacy Policy | Docmark";
 const description =
@@ -9,13 +11,13 @@ const description =
 export const metadata: Metadata = {
   title: { absolute: title },
   description,
-  alternates: { canonical: "https://docmark.jorgegallardo.cl/privacy" },
+  alternates: env.isIndexable ? { canonical: `${env.siteUrl}/privacy` } : undefined,
   openGraph: {
     type: "website",
     siteName: "Docmark",
     title,
     description,
-    url: "https://docmark.jorgegallardo.cl/privacy",
+    url: `${env.siteUrl}/privacy`,
     locale: "en_US",
   },
 };

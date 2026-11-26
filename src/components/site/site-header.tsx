@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, type KeyboardEvent } from "react";
 import styles from "./site-header.module.css";
+import { getEnvironmentConfig } from "@/lib/environment";
+
+const isDev = getEnvironmentConfig().environment === "dev";
 
 const navigationLinks = [
   { href: "/", label: "Home" },
@@ -50,6 +53,8 @@ function SiteHeaderContent({ pathname }: { pathname: string }) {
         >
           docmark<span aria-hidden="true">.</span>
         </Link>
+
+        {isDev && <span className={styles.environmentBadge} aria-label="Development environment">DEV</span>}
 
         <nav aria-label="Primary navigation" className={styles.desktopNavigation}>
           {navigationLinks.map(({ href, label }) => (

@@ -25,6 +25,7 @@
   .app-header,
   .app-footer,
   .site-header,
+  .environmentBadge,
   .workspace-view-switcher,
   .editor-panel,
   .preview-panel > :not(.preview-canvas) {

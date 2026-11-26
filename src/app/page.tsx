@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import styles from "./landing.module.css";
+import { getEnvironmentConfig } from "@/lib/environment";
+
+const siteUrl = getEnvironmentConfig().siteUrl;
 
 const title = "Markdown to PDF Converter — Private & Local | Docmark";
 const description =
@@ -11,13 +14,13 @@ const description =
 export const metadata: Metadata = {
   title: { absolute: title },
   description,
-  alternates: { canonical: "https://docmark.jorgegallardo.cl/" },
+  alternates: getEnvironmentConfig().isIndexable ? { canonical: `${siteUrl}/` } : undefined,
   openGraph: {
     type: "website",
     siteName: "Docmark",
     title,
     description,
-    url: "https://docmark.jorgegallardo.cl/",
+    url: `${siteUrl}/`,
     locale: "en_US",
   },
   twitter: {
@@ -30,7 +33,7 @@ export const metadata: Metadata = {
 const webApplication = {
   "@type": "WebApplication",
   name: "Docmark",
-  url: "https://docmark.jorgegallardo.cl/",
+  url: `${siteUrl}/`,
   description,
   applicationCategory: "UtilitiesApplication",
   operatingSystem: "Any",
@@ -59,7 +62,7 @@ const webSite = {
   "@type": "WebSite",
   name: "Docmark",
   alternateName: "docmark.jorgegallardo.cl",
-  url: "https://docmark.jorgegallardo.cl/",
+  url: `${siteUrl}/`,
 } as const;
 
 const structuredData = {

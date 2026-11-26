@@ -29,6 +29,17 @@
   color: var(--accent);
 }
 
+.environmentBadge {
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .desktopNavigation {
   display: flex;
   align-items: center;

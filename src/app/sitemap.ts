@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
+import { getEnvironmentConfig } from "@/lib/environment";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const environment = getEnvironmentConfig();
+  if (!environment.isIndexable) return [];
   return [
-    { url: "https://docmark.jorgegallardo.cl/" },
-    { url: "https://docmark.jorgegallardo.cl/markdown-to-pdf" },
-    { url: "https://docmark.jorgegallardo.cl/about" },
-    { url: "https://docmark.jorgegallardo.cl/privacy" },
-    { url: "https://docmark.jorgegallardo.cl/contact" },
+    { url: `${environment.siteUrl}/` },
+    { url: `${environment.siteUrl}/markdown-to-pdf` },
+    { url: `${environment.siteUrl}/about` },
+    { url: `${environment.siteUrl}/privacy` },
+    { url: `${environment.siteUrl}/contact` },
   ];
 }

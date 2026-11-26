@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InformationalPage } from "@/components/site/informational-page";
 import styles from "@/components/site/informational-page.module.css";
+import { getEnvironmentConfig } from "@/lib/environment";
+const env = getEnvironmentConfig();
 
 const title = "About Docmark | Docmark";
 const description =
@@ -10,13 +12,13 @@ const description =
 export const metadata: Metadata = {
   title: { absolute: title },
   description,
-  alternates: { canonical: "https://docmark.jorgegallardo.cl/about" },
+  alternates: env.isIndexable ? { canonical: `${env.siteUrl}/about` } : undefined,
   openGraph: {
     type: "website",
     siteName: "Docmark",
     title,
     description,
-    url: "https://docmark.jorgegallardo.cl/about",
+    url: `${env.siteUrl}/about`,
     locale: "en_US",
   },
 };
