@@ -374,15 +374,18 @@ Playwright runs editor, persistence, document-management, file, and pagination f
 
 Autosave race coverage uses Playwright's clock to advance the debounce deterministically rather than waiting on arbitrary sleeps. Run the full suite with `pnpm test`, or run `pnpm test:unit` and `pnpm test:e2e` independently. E2E runs a local Next.js dev server on port 3100 with `.next-e2e` as its isolated build directory.
 
+## Semantic document model (M7.1)
+
+`src/lib/document-model` provides a serializable renderer-independent model built from Markdown and current `DocumentSettings`. It preserves semantic block and inline structures, diagnostics, stable per-model heading identities, and legacy-compatible TOC anchors. This layer has no DOM, React, HTML, or pdfmake dependency. See `docs/m7.1-semantic-document-model.md` for its supported syntax and validation.
+
+## Experimental native PDF export (M7.2)
+
+`src/lib/pdf/adapter.ts` maps the semantic model to a pdfmake document definition. The editor's DEV-only **Native PDF (Experimental)** operation captures Markdown, settings, and title from one active document snapshot, then dynamically imports the browser generator only after activation. The generator fetches the four Liberation Sans variants from the same application's `/fonts/liberation/` path and downloads a Blob through a temporary object URL. The adapter reports unsupported semantics and setting mismatches to the editor. It currently handles basic text, inline styles, lists, tables, code, blockquotes, and page breaks, with explicit placeholders or diagnostics for images, TOC, Mermaid, and unsupported decorations.
+
+The existing **Export PDF** action remains `window.print()` and continues to use the production preview and pagination pipeline. No application code path sends document content to an external service. pdfmake and font bytes are lazy-loaded by the experimental action; the DEV/PROD E2E check covers their absence before activation. M7.2 does not implement feature parity, PDF/A, advanced document decorations, image rendering, Mermaid conversion, or preview. See `docs/m7.2-native-pdf-export-mvp.md`. Further PDF capabilities remain future milestone work.
+
 ## Future capabilities
 
-These are planned and are not implemented yet:
-
+- Advanced native PDF composition and preview in their later milestones
 - Markdown syntax extensions beyond GFM
-- Direct PDF generation and print options beyond the browser's native dialog
-- Mermaid diagrams and KaTeX math
 - PWA and offline support
-
-## Experimental semantic model (M7.1)
-
-`src/lib/document-model` contains an isolated, renderer-independent Markdown model in progress. It is not connected to the editor or export pipeline. See `docs/m7.1-semantic-document-model.md` for current behavior and unresolved compatibility gaps.
