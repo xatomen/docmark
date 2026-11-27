@@ -42,6 +42,12 @@ test("Export PDF waits for a pending Preview update and prints the latest Markdo
   )).toEqual(["Latest preview"]);
 });
 
+test("production editor keeps the native PDF experiment unavailable", async ({ page }) => {
+  await page.goto("/editor");
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Native PDF (Experimental)" })).toHaveCount(0);
+});
+
 test("rapid typing keeps the source immediate and eventually renders its latest snapshot", async ({ page }) => {
   await page.goto("/editor");
   const editor = markdownEditor(page);

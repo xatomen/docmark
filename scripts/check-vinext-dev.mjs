@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium } from "@playwright/test";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const node = process.execPath;
@@ -26,6 +28,7 @@ const run = (file, args, options = {}) => new Promise((resolve, reject) => {
 });
 
 let server;
+let browser;
 try {
   const buildStatus = await run(vite, ["build"]);
   if (buildStatus !== 0) process.exit(buildStatus);
@@ -72,7 +75,58 @@ try {
   if (environment === "dev" && /<loc>/.test(sitemap)) throw new Error("vinext DEV sitemap must be empty.");
   if (environment === "prod" && !sitemap.includes("https://docmark.jorgegallardo.cl/")) throw new Error("vinext PROD sitemap is missing production URLs.");
   console.log(`vinext ${environment.toUpperCase()} robots.txt and sitemap verified`);
+  browser = await chromium.launch({
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
+  });
+  const page = await browser.newPage();
+  const externalRequests = [];
+  await page.route("**/*", async (route) => {
+    const requested = new URL(route.request().url());
+    if (["http:", "https:"].includes(requested.protocol) && requested.origin !== origin) {
+      externalRequests.push(requested.href);
+      await route.abort();
+    } else {
+      await route.continue();
+    }
+  });
+  await page.goto(new URL("/editor", origin).href);
+  const nativeButton = page.getByRole("button", { name: "Native PDF (Experimental)" });
+  const printButton = page.getByRole("button", { name: "Export PDF" });
+  if (!(await printButton.isVisible())) throw new Error(`${environment.toUpperCase()} compiled editor is missing traditional Export PDF.`);
+  if (environment === "dev" && !(await nativeButton.isVisible())) throw new Error("Compiled DEV editor is missing Native PDF.");
+  if (environment === "prod" && await nativeButton.count()) throw new Error("Compiled PROD editor exposed Native PDF.");
+  const initialResources = await page.evaluate(() => performance.getEntriesByType("resource").map(({ name }) => name));
+  if (initialResources.some((name) => name.includes("pdfmake") || name.includes("/fonts/liberation/"))) {
+    throw new Error(`${environment.toUpperCase()} editor loaded the native PDF engine or fonts on startup.`);
+  }
+  if (environment === "dev") {
+    const downloadPromise = page.waitForEvent("download");
+    await nativeButton.click();
+    const download = await downloadPromise;
+    if (download.suggestedFilename() !== "Untitled document.pdf") throw new Error("Compiled DEV PDF filename mismatch.");
+    const artifactDirectory = path.join(root, "artifacts/m7.2");
+    await mkdir(artifactDirectory, { recursive: true });
+    const artifactPath = path.join(artifactDirectory, "editor-download.pdf");
+    await download.saveAs(artifactPath);
+    const bytes = new Uint8Array(await readFile(artifactPath));
+    if (new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") throw new Error("Compiled DEV download has no PDF signature.");
+    const pdf = await getDocument({ data: bytes, useSystemFonts: true }).promise;
+    const content = await (await pdf.getPage(1)).getTextContent();
+    const text = content.items.map((item) => "str" in item ? item.str : "").join(" ");
+    if (!text.includes("Welcome to Docmark")) throw new Error("Compiled DEV native PDF is missing the initial editor document text.");
+    const loadedResources = await page.evaluate(() => performance.getEntriesByType("resource").map(({ name }) => name));
+    if (!loadedResources.some((name) => name.includes("pdfmake")) || !loadedResources.some((name) => name.includes("/fonts/liberation/LiberationSans-Regular.ttf"))) {
+      throw new Error("Compiled DEV export did not lazy-load pdfmake and the local fonts.");
+    }
+    console.log("vinext DEV compiled editor: native PDF parsed and text extracted");
+  }
+  if (externalRequests.length) throw new Error(`${environment.toUpperCase()} editor requested external resources: ${externalRequests.join(", ")}`);
+  console.log(`vinext ${environment.toUpperCase()} compiled editor: native availability, print control, lazy resources, and network verified`);
 } finally {
+  await browser?.close();
   if (server && server.exitCode === null) {
     server.kill("SIGTERM");
     await new Promise((resolve) => server.once("exit", resolve));

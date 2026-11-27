@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@heroui/react";
 import { Check, CircleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getEnvironmentConfig } from "@/lib/environment.mjs";
 import { MarkdownFileActions } from "@/components/editor/markdown-file-actions";
 import { DocumentSwitcher } from "@/components/editor/document-switcher";
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
@@ -43,6 +44,9 @@ import {
   restoreOrCreateLastDocument,
   setLastActiveDocumentId,
 } from "@/lib/storage/documents";
+import { createDocumentModel } from "@/lib/document-model";
+import type { ExportDiagnostic } from "@/lib/pdf/adapter";
+import { normalizePdfFilename } from "@/lib/pdf/filename";
 
 const initialMarkdown = `# Welcome to Docmark
 
@@ -173,6 +177,9 @@ export function EditorWorkspace() {
     useState<PersistenceStatus>("loading");
   const [paginationReady, setPaginationReady] = useState(false);
   const [printError, setPrintError] = useState(false);
+  const [nativePdfBusy, setNativePdfBusy] = useState(false);
+  const [nativePdfMessage, setNativePdfMessage] = useState<string | null>(null);
+  const [nativePdfDiagnostics, setNativePdfDiagnostics] = useState<ExportDiagnostic[]>([]);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [fileOperationNotice, setFileOperationNotice] = useState<string | null>(null);
   const [fileOperationBusy, setFileOperationBusy] = useState(false);
@@ -183,6 +190,7 @@ export function EditorWorkspace() {
   const documentRef = useRef<DocmarkDocument | null>(null);
   const previewFlushRef = useRef<(() => void) | null>(null);
   const pendingPrintRef = useRef<{ documentId: string; markdown: string } | null>(null);
+  const nativePdfBusyRef = useRef(false);
   const documentRevisionRef = useRef(0);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingSaveRef = useRef<PendingSave | null>(null);
@@ -838,6 +846,42 @@ export function EditorWorkspace() {
     }
   }
 
+  async function exportNativePdf() {
+    if (nativePdfBusyRef.current || getEnvironmentConfig().environment !== "dev") return;
+    const active = documentRef.current;
+    if (!active || isWorkspaceTransitioning) return;
+    nativePdfBusyRef.current = true;
+    setNativePdfBusy(true);
+    setNativePdfMessage(null);
+    setNativePdfDiagnostics([]);
+    try {
+      // Read one immutable-in-practice snapshot so edits during generation cannot mix revisions.
+      const snapshot = captureMarkdownFileSnapshot(active);
+      const model = createDocumentModel(snapshot.markdown, { settings: snapshot.settings, parseFrontMatter: false });
+      const { generateNativePdf } = await import("@/lib/pdf/generate-pdf");
+      const { blob, diagnostics } = await generateNativePdf(model);
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = normalizePdfFilename(snapshot.title);
+        anchor.style.display = "none";
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      }
+      setNativePdfDiagnostics(diagnostics);
+      setNativePdfMessage(diagnostics.length ? "PDF downloaded with export warnings." : "Native PDF downloaded.");
+    } catch (error) {
+      setNativePdfMessage(error instanceof Error ? `Native PDF export failed: ${error.message}` : "Native PDF export failed.");
+    } finally {
+      nativePdfBusyRef.current = false;
+      setNativePdfBusy(false);
+    }
+  }
+
   const currentDocument = documentRecord;
   const loading = documentRecord === null || isWorkspaceTransitioning;
   const activeFileStatus = currentDocument
@@ -934,8 +978,24 @@ export function EditorWorkspace() {
             >Export PDF</Button>
             <Tooltip.Content>Opens the browser print dialog; choose Save as PDF.</Tooltip.Content>
           </Tooltip>
+          {getEnvironmentConfig().environment === "dev" && (
+            <Button onPress={exportNativePdf} isDisabled={!documentRecord || isWorkspaceTransitioning || nativePdfBusy} variant="secondary">
+              {nativePdfBusy ? "Generating PDF…" : "Native PDF (Experimental)"}
+            </Button>
+          )}
         </div>
       </header>
+
+      {(nativePdfMessage || nativePdfDiagnostics.length > 0) && (
+        <div role="status" aria-live="polite" className="border-b border-border bg-surface px-4 py-2 text-sm">
+          {nativePdfMessage}
+          {nativePdfDiagnostics.length > 0 && (
+            <ul aria-label="Native PDF unsupported features" className="mt-1 list-disc pl-5 text-amber-800 dark:text-amber-200">
+              {nativePdfDiagnostics.map((diagnostic, index) => <li key={`${diagnostic.kind}-${index}`}>{diagnostic.message}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
 
       {!loading && documentRecord && (
         <div className="workspace-view-switcher lg:hidden">

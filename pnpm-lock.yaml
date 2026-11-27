@@ -47,6 +47,9 @@ importers:
       next:
         specifier: 16.3.8
         version: 16.3.8(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.63.0)(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      pdfmake:
+        specifier: ^0.3.15
+        version: 0.3.15
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -126,9 +129,6 @@ importers:
       pdfkit:
         specifier: ^0.21.0
         version: 0.21.0
-      pdfmake:
-        specifier: ^0.3.15
-        version: 0.3.15
       tailwindcss:
         specifier: ^4
         version: 4.3.3
