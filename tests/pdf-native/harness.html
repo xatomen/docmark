@@ -4,7 +4,11 @@ import {generateNativePdf} from '/src/lib/pdf/generate-pdf.ts';
 window.generatePdf = async (source, options = {}) => {
  const model = createDocumentModel(source);
  if (options.landscape) { model.settings.pageSize='letter'; model.settings.orientation='landscape'; }
- if (options.unsafe) model.blocks.push({type:'paragraph',children:[{type:'link',url:'javascript:alert(1)',title:null,children:[{type:'text',value:'unsafe'}],destination:'external',targetId:null}]});
+ if (options.settings) {
+  if (options.settings.margins) model.settings.margins={...model.settings.margins,...options.settings.margins};
+  if (options.settings.typography) model.settings.typography={...model.settings.typography,...options.settings.typography};
+ }
+ if (options.links) model.blocks.push({type:'paragraph',children:options.links.map(({label,url})=>({type:'link',url,title:null,children:[{type:'text',value:label}],destination:/^[a-z][a-z0-9+.-]*:/i.test(url)||url.startsWith('//')?'external':url.startsWith('#')?'fragment':'relative',targetId:null}))});
  const result=await generateNativePdf(model);
  return { bytes:Array.from(new Uint8Array(await result.blob.arrayBuffer())), diagnostics:result.diagnostics };
 };

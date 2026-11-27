@@ -46,6 +46,7 @@ import {
 } from "@/lib/storage/documents";
 import { createDocumentModel } from "@/lib/document-model";
 import type { ExportDiagnostic } from "@/lib/pdf/adapter";
+import { normalizePdfFilename } from "@/lib/pdf/filename";
 
 const initialMarkdown = `# Welcome to Docmark
 
@@ -166,15 +167,6 @@ function samePageLayout(left: DocumentSettings, right: DocumentSettings): boolea
 
 function normalizeTitle(title: string): string {
   return title.trim() || DEFAULT_DOCUMENT_TITLE;
-}
-
-function pdfFilename(title: string): string {
-  const normalized = title.normalize("NFKC").trim()
-    .replace(/\.(?:md|markdown)$/i, "")
-    .replace(/[\\/:*?\"<>|\u0000-\u001f\u007f]/g, "-")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "");
-  return `${normalized || "Untitled document"}.pdf`;
 }
 
 export function EditorWorkspace() {
@@ -872,7 +864,7 @@ export function EditorWorkspace() {
       try {
         const anchor = document.createElement("a");
         anchor.href = objectUrl;
-        anchor.download = pdfFilename(snapshot.title);
+        anchor.download = normalizePdfFilename(snapshot.title);
         anchor.style.display = "none";
         document.body.append(anchor);
         anchor.click();
@@ -881,7 +873,7 @@ export function EditorWorkspace() {
         window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       }
       setNativePdfDiagnostics(diagnostics);
-      setNativePdfMessage(diagnostics.length ? "PDF downloaded with unsupported-feature warnings." : "Native PDF downloaded.");
+      setNativePdfMessage(diagnostics.length ? "PDF downloaded with export warnings." : "Native PDF downloaded.");
     } catch (error) {
       setNativePdfMessage(error instanceof Error ? `Native PDF export failed: ${error.message}` : "Native PDF export failed.");
     } finally {
