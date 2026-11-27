@@ -38,7 +38,7 @@ describe("references and security", () => {
   });
   it("resolves a forward internal anchor after headings are collected", () => {
     const model = createDocumentModel('[target](#docmark-heading-0)\n\n:::toc\n:::\n\n# Later');
-    expect(model.blocks[0]).toMatchObject({ type: "paragraph", children: [{ type: "link", targetId: "docmark-heading-0", destination: "fragment" }] });
+    expect(model.blocks[0]).toMatchObject({ type: "paragraph", children: [{ type: "link", targetId: "heading-0", destination: "fragment" }] });
   });
   it("distinguishes table headers and alignment", () => {
     const model = createDocumentModel('| Name | Value |\n| :--- | ---: |\n| **a** | b |');
@@ -105,8 +105,38 @@ describe("heading and TOC matrix", () => {
     const paragraph = model.blocks.find(block => block.type === "paragraph");
     expect(paragraph?.type).toBe("paragraph");
     if (paragraph?.type !== "paragraph") throw new Error("expected paragraph");
-    expect(paragraph.children[0]).toMatchObject({ type: "link", targetId: prefix ? "docmark-heading-1" : null });
+    expect(paragraph.children[0]).toMatchObject({ type: "link", targetId: prefix ? "heading-1" : null });
     expect(model.diagnostics.filter(d => d.type === "anchor").length).toBe(prefix ? 1 : 2);
     expect(JSON.parse(JSON.stringify(model))).toEqual(createDocumentModel(source));
+  });
+});
+
+describe("review corrections", () => {
+  it("collects nested definitions and uses the first definition", () => {
+    const model = createDocumentModel('[one][ref] ![image][ref]\n\n> [ref]: https://first.example "First"\n\n[ref]: https://second.example');
+    const first = model.blocks[0];
+    expect(first.type).toBe("paragraph");
+    if (first.type !== "paragraph") throw new Error("expected paragraph");
+    expect(first.children[0]).toMatchObject({ type: "link", url: "https://first.example", title: "First" });
+    expect(first.children[2]).toMatchObject({ type: "image", url: "https://first.example" });
+  });
+  it("pads short rows and discards surplus cells to match header width", () => {
+    const model = createDocumentModel('| A | B |\n| - | - |\n| x |\n| a | b | c |');
+    const table = model.blocks[0];
+    expect(table.type).toBe("table");
+    if (table.type !== "table") throw new Error("expected table");
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows.map(row => row.length)).toEqual([2, 2]);
+    expect(table.rows[0][1]).toEqual([]);
+    expect(JSON.stringify(table)).not.toContain('"value":"c"');
+  });
+  it("reports existing front matter warnings when parsing is enabled", () => {
+    const source = '---\ndocmark:\n  version: 99\n---\n\n# Body';
+    expect(createDocumentModel(source, { parseFrontMatter: true }).diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: "frontMatter" })]));
+    expect(createDocumentModel(source).diagnostics.some(d => d.type === "frontMatter")).toBe(false);
+  });
+  it("resolves legacy anchor URLs to semantic IDs", () => {
+    const model = createDocumentModel('[go](#docmark-heading-0)\n\n:::toc\n:::\n\n# Target');
+    expect(model.blocks[0]).toMatchObject({ type: "paragraph", children: [{ type: "link", url: "#docmark-heading-0", targetId: "heading-0" }] });
   });
 });

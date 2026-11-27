@@ -30,18 +30,27 @@ export function createDocumentModel(markdown: string, options: { settings?: Docu
   const settings = options.settings ?? parsed?.settings ?? DEFAULT_DOCUMENT_SETTINGS;
   const tree = unified().use(remarkParse).use(remarkGfm).parse(source) as Node;
   const diagnostics: SemanticDocument["diagnostics"] = [];
+  if (parsed?.warning) diagnostics.push({ type: "frontMatter", message: parsed.warning });
   let heading = 0, anchor = 0, code = 0, mermaid = 0;
   const hasToc = (tree.children ?? []).some(n => n.type === "paragraph" && n.children?.length === 1 && n.children[0].type === "text" && /^ {0,3}:::toc[\t ]*\n {0,3}:::[\t ]*$/.test(n.children[0].value ?? ""));
   const headingText = (node: Node): string => node.type === "text" || node.type === "inlineCode" ? node.value ?? "" : node.type === "break" ? " " : node.type === "image" || node.type === "imageReference" ? node.alt ?? "" : (node.children ?? []).map(headingText).join("");
   const definitions = new Map<string, Node>();
-  for (const node of tree.children ?? []) if (node.type === "definition" && node.identifier) definitions.set(node.identifier.toLowerCase(), node);
+  const normalizeIdentifier = (value: string) => value.replace(/[\t\n\r ]+/g, " ").trim().toLowerCase();
+  const collectDefinitions = (node: Node): void => {
+    if (node.type === "definition" && node.identifier) {
+      const id = normalizeIdentifier(node.identifier);
+      if (!definitions.has(id)) definitions.set(id, node);
+    }
+    node.children?.forEach(collectDefinitions);
+  };
+  collectDefinitions(tree);
   const safeUrl = (url: string, kind: "href" | "src"): boolean => {
     if (/[\u0000-\u0020\u007f\\]/.test(url)) return false;
     const match = /^([^/?#]*):/.exec(url);
     return !match || (defaultSchema.protocols?.[kind] ?? []).includes(match[1].toLowerCase());
   };
   const links: Extract<Inline, { type: "link" }>[] = [];
-  const ids = new Set<string>();
+  const ids = new Map<string, string>();
   const unsupported = (node: Node) => { diagnostics.push({ type: node.type, message: `Unsupported Markdown node: ${node.type}` }); };
   const inline = (nodes: Node[]): Inline[] => nodes.flatMap((n): Inline[] => {
     if (n.type === "text") return [{ type: "text", value: n.value ?? "" }];
@@ -49,14 +58,14 @@ export function createDocumentModel(markdown: string, options: { settings?: Docu
     if (n.type === "break") return [{ type: "break" }];
     if (n.type === "strong" || n.type === "emphasis" || n.type === "delete") return [{ type: n.type, children: inline(n.children ?? []) }];
     if (n.type === "link" || n.type === "linkReference") {
-      const ref = n.type === "linkReference" ? definitions.get((n.identifier ?? "").toLowerCase()) : n;
+      const ref = n.type === "linkReference" ? definitions.get(normalizeIdentifier(n.identifier ?? "")) : n;
       if (!ref || !safeUrl(ref.url ?? "", "href")) { diagnostics.push({ type: "link", message: "Unresolved or unsafe link" }); return inline(n.children ?? []); }
       const url = ref.url ?? "";
       const link: Extract<Inline, { type: "link" }> = { type: "link", url, title: ref.title ?? null, children: inline(n.children ?? []), destination: url.startsWith("#") ? "fragment" : /^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") ? "external" : "relative", targetId: null };
       links.push(link); return [link];
     }
     if (n.type === "image" || n.type === "imageReference") {
-      const ref = n.type === "imageReference" ? definitions.get((n.identifier ?? "").toLowerCase()) : n;
+      const ref = n.type === "imageReference" ? definitions.get(normalizeIdentifier(n.identifier ?? "")) : n;
       if (!ref || !safeUrl(ref.url ?? "", "src")) { diagnostics.push({ type: "image", message: "Unresolved or unsafe image" }); return [{ type: "text", value: n.alt ?? "" }]; }
       return [{ type: "image", url: ref.url ?? "", alt: n.alt ?? "", title: ref.title ?? null }];
     }
@@ -69,16 +78,16 @@ export function createDocumentModel(markdown: string, options: { settings?: Docu
       if (/^ {0,3}:::pagebreak[\t ]*\n {0,3}:::[\t ]*$/.test(value)) return [{ type: "pageBreak" }];
     }
     if (n.type === "paragraph") return [{ type: "paragraph", children: inline(n.children ?? []) }];
-    if (n.type === "heading") { const id = `heading-${heading++}`; const depth = n.depth ?? 1; const tocEligible = depth <= 3 && !!(n.children ?? []).map(headingText).join("").replace(/\s+/g, " ").trim(); const anchorId = hasToc && tocEligible ? `docmark-heading-${anchor++}` : null; if (anchorId) ids.add(anchorId); return [{ type: "heading", id, anchorId, tocEligible, depth, children: inline(n.children ?? []) }]; }
+    if (n.type === "heading") { const id = `heading-${heading++}`; const depth = n.depth ?? 1; const tocEligible = depth <= 3 && !!(n.children ?? []).map(headingText).join("").replace(/\s+/g, " ").trim(); const anchorId = hasToc && tocEligible ? `docmark-heading-${anchor++}` : null; if (anchorId) ids.set(anchorId, id); return [{ type: "heading", id, anchorId, tocEligible, depth, children: inline(n.children ?? []) }]; }
     if (n.type === "blockquote") return [{ type: "blockquote", children: blocks(n.children ?? []) }];
     if (n.type === "list") return [{ type: "list", ordered: n.ordered ?? false, start: n.start ?? null, items: (n.children ?? []).map(item => ({ checked: item.checked ?? null, children: blocks(item.children ?? []) })) }];
-    if (n.type === "table") { const rows = (n.children ?? []).map(row => (row.children ?? []).map(cell => inline(cell.children ?? []))); return [{ type: "table", align: n.align ?? [], header: rows[0] ?? [], rows: rows.slice(1) }]; }
+    if (n.type === "table") { const width = n.align?.length ?? 0; const rows = (n.children ?? []).map(row => { const cells = (row.children ?? []).slice(0, width).map(cell => inline(cell.children ?? [])); while (cells.length < width) cells.push([]); return cells; }); return [{ type: "table", align: n.align ?? [], header: rows[0] ?? [], rows: rows.slice(1) }]; }
     if (n.type === "code") { const diagram = root && n.lang?.trim().toLowerCase() === "mermaid"; return [{ type: diagram ? "mermaid" : "code", id: diagram ? `mermaid-${mermaid++}` : `code-${code++}`, value: n.value ?? "", lang: n.lang ?? null, meta: n.meta ?? null }]; }
     if (n.type === "thematicBreak") return [{ type: "thematicBreak" }];
     if (n.type === "definition") return [];
     unsupported(n); return n.children ? blocks(n.children) : [];
   });
   const result = blocks(tree.children ?? [], true);
-  for (const link of links) if (link.destination === "fragment") { const id = link.url.slice(1); if (ids.has(id)) link.targetId = id; else diagnostics.push({ type: "anchor", message: `Unresolved anchor: ${link.url}` }); }
+  for (const link of links) if (link.destination === "fragment") { const id = link.url.slice(1); if (ids.has(id)) link.targetId = ids.get(id) ?? null; else diagnostics.push({ type: "anchor", message: `Unresolved anchor: ${link.url}` }); }
   return { settings: structuredClone(settings), blocks: result, diagnostics };
 }
