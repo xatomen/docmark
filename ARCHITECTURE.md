@@ -382,3 +382,7 @@ These are planned and are not implemented yet:
 - Direct PDF generation and print options beyond the browser's native dialog
 - Mermaid diagrams and KaTeX math
 - PWA and offline support
+
+## Experimental semantic model (M7.1)
+
+`src/lib/document-model` contains an isolated, renderer-independent Markdown model in progress. It is not connected to the editor or export pipeline. See `docs/m7.1-semantic-document-model.md` for current behavior and unresolved compatibility gaps.
