@@ -1,6 +1,39 @@
 <!doctype html><script type="module">
 import {createDocumentModel} from '/src/lib/document-model/index.ts';
+import {buildPdfDefinition} from '/src/lib/pdf/adapter.ts';
 import {generateNativePdf} from '/src/lib/pdf/generate-pdf.ts';
+window.probePdfFontFormat = async (fontUrl, formatLabel) => {
+ const response = await fetch(fontUrl);
+ if (!response.ok) throw new Error(`Could not load the ${formatLabel} format probe`);
+ const bytes = new Uint8Array(await response.arrayBuffer());
+ let binary=''; for(let offset=0;offset<bytes.length;offset+=0x8000) binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+ return window.probePdfFontBytes(btoa(binary),formatLabel);
+};
+window.probePdfFontBytes = async (base64, formatLabel) => {
+ const {default:pdfMake}=await import('pdfmake/build/pdfmake');
+ const filename=`FormatProbe.${formatLabel}`;
+ pdfMake.addVirtualFileSystem({[filename]:base64});
+ const face=formatLabel==='ttc'?[filename,0]:filename;
+ pdfMake.addFonts({[`${formatLabel}Probe`]:{normal:face,bold:face,italics:face,bolditalics:face}});
+ try {
+  const blob=await pdfMake.createPdf({content:[{text:'Prueba de fuente acción',font:`${formatLabel}Probe`}]}).getBlob();
+  return {supported:true,bytes:blob.size};
+ } catch(error) {
+  return {supported:false,error:error instanceof Error?error.message:String(error)};
+ }
+};
+window.probePdfmakeFontFeatures = async (text, fontFeatures) => {
+ const {default:pdfMake}=await import('pdfmake/build/pdfmake');
+ const response=await fetch('/fonts/liberation/LiberationSans-Regular.ttf');
+ if(!response.ok) throw new Error('Could not load the local font feature probe face');
+ const bytes=new Uint8Array(await response.arrayBuffer());
+ let binary=''; for(let offset=0;offset<bytes.length;offset+=0x8000) binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+ const filename='UnicodeFeatureProbe-Regular.ttf';
+ pdfMake.addVirtualFileSystem({[filename]:btoa(binary)});
+ pdfMake.addFonts({UnicodeFeatureProbe:{normal:filename,bold:filename,italics:filename,bolditalics:filename}});
+ const blob=await pdfMake.createPdf({content:[{text,font:'UnicodeFeatureProbe',fontFeatures}]}).getBlob();
+ return {bytes:Array.from(new Uint8Array(await blob.arrayBuffer())),fontFeatures};
+};
 window.generatePdf = async (source, options = {}) => {
  const model = createDocumentModel(source);
  if (options.landscape) { model.settings.pageSize='letter'; model.settings.orientation='landscape'; }
@@ -9,7 +42,10 @@ window.generatePdf = async (source, options = {}) => {
   if (options.settings.typography) model.settings.typography={...model.settings.typography,...options.settings.typography};
  }
  if (options.links) model.blocks.push({type:'paragraph',children:options.links.map(({label,url})=>({type:'link',url,title:null,children:[{type:'text',value:label}],destination:/^[a-z][a-z0-9+.-]*:/i.test(url)||url.startsWith('//')?'external':url.startsWith('#')?'fragment':'relative',targetId:null}))});
- const result=await generateNativePdf(model);
+ const plan=buildPdfDefinition(model).fontPlan;
+ let result;
+ try { result=await generateNativePdf(model); }
+ catch(error) { return {error:error instanceof Error?error.message:String(error),cause:error?.cause instanceof Error?error.cause.message:String(error?.cause??''),fonts:plan.fonts,assets:plan.assets.map(({fileName})=>fileName)}; }
  return { bytes:Array.from(new Uint8Array(await result.blob.arrayBuffer())), diagnostics:result.diagnostics };
 };
 </script>

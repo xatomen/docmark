@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -117,6 +117,13 @@ try {
     const content = await (await pdf.getPage(1)).getTextContent();
     const text = content.items.map((item) => "str" in item ? item.str : "").join(" ");
     if (!text.includes("Welcome to Docmark")) throw new Error("Compiled DEV native PDF is missing the initial editor document text.");
+    const phaseDDirectory = path.join(root, "artifacts/m7.3");
+    await mkdir(phaseDDirectory, { recursive: true });
+    const phaseDArtifactPath = path.join(phaseDDirectory, "editor-vinext-download.pdf");
+    await copyFile(artifactPath, phaseDArtifactPath);
+    if (Buffer.compare(await readFile(artifactPath), await readFile(phaseDArtifactPath)) !== 0) {
+      throw new Error("Saved compiled DEV review artifact differs from the actual browser download.");
+    }
     const loadedResources = await page.evaluate(() => performance.getEntriesByType("resource").map(({ name }) => name));
     if (!loadedResources.some((name) => name.includes("pdfmake")) || !loadedResources.some((name) => name.includes("/fonts/liberation/LiberationSans-Regular.ttf"))) {
       throw new Error("Compiled DEV export did not lazy-load pdfmake and the local fonts.");

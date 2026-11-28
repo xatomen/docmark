@@ -4,13 +4,67 @@ import { buildPdfDefinition } from "@/lib/pdf/adapter";
 import { normalizePdfFilename } from "@/lib/pdf/filename";
 
 describe("native PDF adapter", () => {
+  it.each([
+    [19, false, 19],
+    [20, false, 20],
+    [21, true, 20],
+  ])("keeps the diagnostic limit inclusive for %i candidates", (count, hasSummary, expectedCount) => {
+    const model = createDocumentModel("");
+    model.diagnostics = Array.from({ length: count }, (_, index) => ({
+      type: "fixture",
+      message: `Diagnostic ${index + 1}`,
+    }));
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    expect(diagnostics).toHaveLength(expectedCount);
+    expect(diagnostics.some(({ message }) => message.includes("Additional export diagnostics"))).toBe(hasSummary);
+    if (hasSummary) expect(diagnostics.at(-1)?.message).toContain("unsupported: 2");
+  });
+
+  it("summarizes candidates omitted by both the 64-entry collection and final warning limit", () => {
+    const model = createDocumentModel("");
+    model.diagnostics = Array.from({ length: 70 }, (_, index) => ({
+      type: "fixture",
+      message: `Diagnostic ${index + 1}`,
+    }));
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    expect(diagnostics).toHaveLength(20);
+    expect(diagnostics.slice(0, 19).map(({ message }) => message)).toEqual(
+      Array.from({ length: 19 }, (_, index) => `Diagnostic ${index + 1}`),
+    );
+    expect(diagnostics.at(-1)?.message).toContain("unsupported: 51");
+  });
+
+  it("keeps unsupported shaping and private-use markers ahead of many successful fallback notices", () => {
+    const model = createDocumentModel("");
+    model.blocks = [{ type: "paragraph", children: [{
+      type: "text",
+      value: `₽∈🔒⚠. `.repeat(20) + "👩‍💻" + String.fromCodePoint(0xF001),
+    }] }];
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    const shapingIndex = diagnostics.findIndex(({ message }) => message.startsWith("Qualified shaping is unsupported"));
+    const privateUseIndex = diagnostics.findIndex(({ message }) => message.startsWith("Private-use fallback"));
+    const fallbackIndices = diagnostics.flatMap(({ message }, index) =>
+      message.startsWith("Unicode fallback uses ") ? [index] : [],
+    );
+
+    expect(shapingIndex).toBeGreaterThanOrEqual(0);
+    expect(privateUseIndex).toBeGreaterThanOrEqual(0);
+    expect(fallbackIndices.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(shapingIndex, privateUseIndex)).toBeLessThan(Math.min(...fallbackIndices));
+    expect(diagnostics.find(({ message }) => message.startsWith("Qualified shaping"))?.kind).toBe("unsupported");
+    expect(diagnostics.find(({ message }) => message.startsWith("Private-use fallback"))?.kind).toBe("unsupported");
+  });
+
   it("maps settings, formatted text, lists, tables and explicit breaks deterministically", () => {
     const model = createDocumentModel('# Título\n\n**bold** and *italic*\n\n- uno\n- dos\n\n| A | B |\n|---|---|\n| x | y |\n\n:::pagebreak\n:::\n\nFinal');
     const result = buildPdfDefinition(model);
     expect(result).toEqual(buildPdfDefinition(model));
     expect(result.definition.pageSize).toBe("A4");
     expect(result.definition.pageMargins[0]).toBeCloseTo(20 * 72 / 25.4);
-    expect(result.definition.content.at(-1)).toEqual({ text: [{ text: "Final" }], margin: [0, 0, 0, 8] });
+    expect(result.definition.content.at(-1)).toMatchObject({ text: [{ text: "Final" }], margin: [0, 0, 0, 8] });
     expect(result.definition.content).toContainEqual(expect.objectContaining({ pageBreak: "after" }));
     expect(result.definition.content).toContainEqual(expect.objectContaining({ table: expect.objectContaining({ headerRows: 1 }) }));
   });
@@ -28,10 +82,10 @@ describe("native PDF adapter", () => {
     expect(listItems[0].stack[0]).toMatchObject({ text: [{ text: "outer paragraph" }] });
     expect(listItems[0].stack[1]).toMatchObject({ text: [{ text: "second paragraph" }] });
     expect(listItems[0].stack[2]).toMatchObject({ ul: expect.any(Array) });
-    expect(listItems[2].stack[0]).toEqual({ text: "[x]" });
-    expect(listItems[3].stack[0]).toEqual({ text: "[ ]" });
+    expect(listItems[2].stack[0]).toMatchObject({ text: [{ text: "[x]", font: "LiberationSans" }] });
+    expect(listItems[3].stack[0]).toMatchObject({ text: [{ text: "[ ]", font: "LiberationSans" }] });
     const code = result.definition.content.find((item) => "preserveLeadingSpaces" in item) as Record<string, unknown>;
-    expect(code).toMatchObject({ text: "a     b", preserveLeadingSpaces: true, preserveTrailingSpaces: true });
+    expect(code).toMatchObject({ text: [{ text: "a     b", font: "LiberationMono" }], preserveLeadingSpaces: true, preserveTrailingSpaces: true });
   });
 
   it("maps all four margins, empty tables, alignments, and empty documents structurally", () => {
@@ -40,23 +94,20 @@ describe("native PDF adapter", () => {
     const result = buildPdfDefinition(model);
     expect(result.definition.pageMargins).toEqual([23, 13, 17, 19].map((value) => value * 72 / 25.4));
     const table = result.definition.content[0] as { table: { body: { text: object[]; alignment: string }[][] } };
-    expect(table.table.body[1]).toEqual([
-      expect.objectContaining({ text: [{ text: "uno" }], alignment: "left" }),
-      expect.objectContaining({ text: [{ text: "dos" }], alignment: "center" }),
-      expect.objectContaining({ text: [{ text: "tres" }], alignment: "right" }),
-      expect.objectContaining({ text: [], alignment: "left" }),
-    ]);
+    expect(table.table.body[1][0]).toMatchObject({ text: [{ text: "uno" }], alignment: "left" });
+    expect(table.table.body[1][1]).toMatchObject({ text: [{ text: "dos" }], alignment: "center" });
+    expect(table.table.body[1][2]).toMatchObject({ text: [{ text: "tres" }], alignment: "right" });
+    expect(table.table.body[1][3]).toMatchObject({ text: [], alignment: "left" });
     expect(buildPdfDefinition(createDocumentModel("")).definition.content).toEqual([]);
   });
 
   it("retains visible text and reports semantic diagnostics for unsupported content", () => {
     const model = createDocumentModel('[local](/page)\n\n:::toc\n:::\n\n```mermaid\ngraph TD\n```');
     const result = buildPdfDefinition(model);
-    expect(result.definition.content[0]).toEqual({ text: [{ text: "local" }], margin: [0, 0, 0, 8] });
+    expect(result.definition.content[0]).toMatchObject({ text: [{ text: "local" }], margin: [0, 0, 0, 8] });
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "unsupported", message: "Table of contents is not generated" }),
       expect.objectContaining({ kind: "unsupported", message: "Mermaid shown as source text" }),
-      expect.objectContaining({ kind: "approximation", message: expect.stringContaining("Unicode coverage") }),
     ]));
   });
 
@@ -70,7 +121,7 @@ describe("native PDF adapter", () => {
     const result = buildPdfDefinition(model);
     expect(result.definition.defaultStyle.lineHeight).toBe(1.2);
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "approximation", message: expect.stringContaining("Font family") }),
+      expect.objectContaining({ kind: "approximation", message: expect.stringContaining("Selected Georgia") }),
       expect.objectContaining({ kind: "unsupported", message: expect.stringContaining("alignment") }),
       expect.objectContaining({ kind: "unsupported", message: expect.stringContaining("cover page, header") }),
     ]));
@@ -87,6 +138,13 @@ describe("PDF download filename normalization", () => {
     ["Report.pdf.md", "Report.pdf"],
     ["Report.pdf.PDF", "Report.pdf"],
     [" Report.pdf.md ", "Report.pdf"],
+    ["Report.pdf.", "Report.pdf"],
+    ["Report.pdf.md.pdf", "Report.pdf"],
+    ["Report.md.pdf.markdown.PDF", "Report.pdf"],
+    ["Report.pdf...   ", "Report.pdf"],
+    [".pdf", "Untitled document.pdf"],
+    [".md", "Untitled document.pdf"],
+    [".pdf.md.pdf", "Untitled document.pdf"],
     ["two  spaces.md", "two  spaces.pdf"],
     ["RÉSUMÉ-日本語.md", "RÉSUMÉ-日本語.pdf"],
     ["café.md", "café.pdf"],
@@ -106,7 +164,7 @@ describe("PDF renderer URL policy", () => {
   ])("normalizes valid Markdown destination %s", (destination, normalized) => {
     const result = buildPdfDefinition(createDocumentModel(`[visible](${destination})`));
     const paragraph = result.definition.content[0] as { text: { text: string; link?: string }[] };
-    expect(paragraph.text).toContainEqual({ text: "visible", link: normalized });
+    expect(paragraph.text).toContainEqual(expect.objectContaining({ text: "visible", link: normalized }));
   });
 
   it.each([
@@ -121,7 +179,7 @@ describe("PDF renderer URL policy", () => {
     }] }];
     const result = buildPdfDefinition(model);
     const paragraph = result.definition.content[0] as { text: { text: string; link?: string }[] };
-    expect(paragraph.text).toContainEqual({ text: "visible" });
+    expect(paragraph.text).toContainEqual(expect.objectContaining({ text: "visible" }));
     expect(paragraph.text[0]).not.toHaveProperty("link");
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ kind: "unsafe" }));
   });
