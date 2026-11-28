@@ -987,10 +987,10 @@ export function EditorWorkspace() {
       </header>
 
       {(nativePdfMessage || nativePdfDiagnostics.length > 0) && (
-        <div role="status" aria-live="polite" className="border-b border-border bg-surface px-4 py-2 text-sm">
+        <div role="status" aria-live="polite" className="native-pdf-status border-b border-border bg-surface px-4 py-2 text-sm">
           {nativePdfMessage}
           {nativePdfDiagnostics.length > 0 && (
-            <ul aria-label="Native PDF unsupported features" className="mt-1 list-disc pl-5 text-amber-800 dark:text-amber-200">
+            <ul aria-label="Native PDF export diagnostics" className="mt-1 list-disc pl-5 text-amber-800 dark:text-amber-200">
               {nativePdfDiagnostics.map((diagnostic, index) => <li key={`${diagnostic.kind}-${index}`}>{diagnostic.message}</li>)}
             </ul>
           )}
