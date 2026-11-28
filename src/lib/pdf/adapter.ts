@@ -57,7 +57,7 @@ export function buildPdfDefinition(document: SemanticDocument): {
   let sequence = 0;
   const diagnosticPriority = (kind: ExportDiagnostic["kind"], message: string) => {
     if (kind === "unsafe") return 0;
-    if (kind === "unsupported" && /U\+[0-9A-F]+|replaced|unresolved|unsupported text|Private-use/i.test(message)) return 0;
+    if (kind === "unsupported" && /U\+[0-9A-F]+|replaced|unresolved|unsupported text|Qualified shaping|Private-use/i.test(message)) return 0;
     if (kind === "fidelity") return 1;
     if (kind === "unsupported") return 2;
     return 3;
@@ -82,7 +82,11 @@ export function buildPdfDefinition(document: SemanticDocument): {
   const finishDiagnostics = () => {
     const ordered = [...candidates.values()].sort((left, right) => left.priority - right.priority || left.sequence - right.sequence);
     const omittedCount = Object.values(omittedByKind).reduce((sum, count) => sum + count, 0);
-    const slots = omittedCount > 0 ? maxDiagnostics - 1 : maxDiagnostics;
+    // Reserve one slot whenever either earlier collection or this final slice
+    // will omit entries, so the summary is included in the hard maximum.
+    const slots = omittedCount > 0 || ordered.length > maxDiagnostics
+      ? maxDiagnostics - 1
+      : maxDiagnostics;
     diagnostics.push(...ordered.slice(0, slots).map(({ diagnostic }) => diagnostic));
     const unshown = ordered.slice(slots);
     for (const { diagnostic } of unshown) omittedByKind[diagnostic.kind] += 1;
@@ -143,7 +147,9 @@ export function buildPdfDefinition(document: SemanticDocument): {
       const style: PdfFontVariant = run.variant;
       addFontUse(run.familyId, style);
       for (const message of resolved.diagnostics) {
-        const kind = message.includes("Bidirectional ordering is not supported")
+        const kind = message.startsWith("Qualified shaping is unsupported")
+          || message.startsWith("Private-use fallback from unrelated font families is disabled")
+          || message.includes("Bidirectional ordering is not supported")
           || message.startsWith("No currently qualified")
           || message.startsWith("No configured native PDF font")
           || message.startsWith("Font coverage metadata")

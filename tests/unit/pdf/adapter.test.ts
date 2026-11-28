@@ -4,6 +4,60 @@ import { buildPdfDefinition } from "@/lib/pdf/adapter";
 import { normalizePdfFilename } from "@/lib/pdf/filename";
 
 describe("native PDF adapter", () => {
+  it.each([
+    [19, false, 19],
+    [20, false, 20],
+    [21, true, 20],
+  ])("keeps the diagnostic limit inclusive for %i candidates", (count, hasSummary, expectedCount) => {
+    const model = createDocumentModel("");
+    model.diagnostics = Array.from({ length: count }, (_, index) => ({
+      type: "fixture",
+      message: `Diagnostic ${index + 1}`,
+    }));
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    expect(diagnostics).toHaveLength(expectedCount);
+    expect(diagnostics.some(({ message }) => message.includes("Additional export diagnostics"))).toBe(hasSummary);
+    if (hasSummary) expect(diagnostics.at(-1)?.message).toContain("unsupported: 2");
+  });
+
+  it("summarizes candidates omitted by both the 64-entry collection and final warning limit", () => {
+    const model = createDocumentModel("");
+    model.diagnostics = Array.from({ length: 70 }, (_, index) => ({
+      type: "fixture",
+      message: `Diagnostic ${index + 1}`,
+    }));
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    expect(diagnostics).toHaveLength(20);
+    expect(diagnostics.slice(0, 19).map(({ message }) => message)).toEqual(
+      Array.from({ length: 19 }, (_, index) => `Diagnostic ${index + 1}`),
+    );
+    expect(diagnostics.at(-1)?.message).toContain("unsupported: 51");
+  });
+
+  it("keeps unsupported shaping and private-use markers ahead of many successful fallback notices", () => {
+    const model = createDocumentModel("");
+    model.blocks = [{ type: "paragraph", children: [{
+      type: "text",
+      value: `₽∈🔒⚠. `.repeat(20) + "👩‍💻" + String.fromCodePoint(0xF001),
+    }] }];
+
+    const diagnostics = buildPdfDefinition(model).diagnostics;
+    const shapingIndex = diagnostics.findIndex(({ message }) => message.startsWith("Qualified shaping is unsupported"));
+    const privateUseIndex = diagnostics.findIndex(({ message }) => message.startsWith("Private-use fallback"));
+    const fallbackIndices = diagnostics.flatMap(({ message }, index) =>
+      message.startsWith("Unicode fallback uses ") ? [index] : [],
+    );
+
+    expect(shapingIndex).toBeGreaterThanOrEqual(0);
+    expect(privateUseIndex).toBeGreaterThanOrEqual(0);
+    expect(fallbackIndices.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(shapingIndex, privateUseIndex)).toBeLessThan(Math.min(...fallbackIndices));
+    expect(diagnostics.find(({ message }) => message.startsWith("Qualified shaping"))?.kind).toBe("unsupported");
+    expect(diagnostics.find(({ message }) => message.startsWith("Private-use fallback"))?.kind).toBe("unsupported");
+  });
+
   it("maps settings, formatted text, lists, tables and explicit breaks deterministically", () => {
     const model = createDocumentModel('# Título\n\n**bold** and *italic*\n\n- uno\n- dos\n\n| A | B |\n|---|---|\n| x | y |\n\n:::pagebreak\n:::\n\nFinal');
     const result = buildPdfDefinition(model);

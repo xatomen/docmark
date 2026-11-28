@@ -547,7 +547,7 @@ test("DEV exports select document fonts, load only resolved faces, reuse warm as
     expect(warmSession.embeddedFonts.some((font) => font.includes("LiberationSerif"))).toBe(true);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    const warningSource = "NFD: cafe\u0301; mixed Arabic مرحبا, Hebrew שלום; unsupported emoji 😀.";
+    const warningSource = `NFD: cafe\u0301; mixed Arabic مرحبا, Hebrew שלום; fallback ₽ ∈ 🔒 ⚠; unsupported emoji 😀; shaping 👩🏽‍💻; private-use ${String.fromCodePoint(0xF001)}.`;
     const warningRecord = await exportScenario("mobile-diagnostics", warningSource, "Arial");
     expect(warningRecord.extractedText).toContain("[U+1F600]");
     const warning = page.getByRole("list", { name: "Native PDF export diagnostics" });
@@ -555,6 +555,13 @@ test("DEV exports select document fonts, load only resolved faces, reuse warm as
     await expect(warning).toContainText("Decomposed Unicode");
     await expect(warning).toContainText("Bidirectional ordering is not supported");
     await expect(warning).toContainText("U+1F600");
+    await expect(warning).toContainText("Qualified shaping is unsupported");
+    await expect(warning).toContainText("Private-use fallback from unrelated font families is disabled");
+    await expect(warning).toContainText("Unicode fallback uses");
+    const warningMessages = await warning.locator("li").allTextContents();
+    const firstFallbackIndex = warningMessages.findIndex((message) => message.startsWith("Unicode fallback uses"));
+    expect(warningMessages.findIndex((message) => message.startsWith("Qualified shaping is unsupported"))).toBeLessThan(firstFallbackIndex);
+    expect(warningMessages.findIndex((message) => message.startsWith("Private-use fallback from unrelated font families is disabled"))).toBeLessThan(firstFallbackIndex);
     const warningBox = await warning.boundingBox();
     expect(warningBox).not.toBeNull();
     expect(warningBox!.width).toBeLessThanOrEqual(390);
