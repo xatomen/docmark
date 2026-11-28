@@ -123,8 +123,8 @@ describe("deterministic coverage fallback and PDF text runs", () => {
     const plain = resolveTextToFontRuns("plain", { documentFamily: "Arial" });
     const boldLock = resolveTextToFontRuns("🔒", { documentFamily: "Arial", variant: "bold" });
     expect(plain.runs[0].familyId).toBe("LiberationSans");
-    expect(boldLock.runs[0]).toMatchObject({ familyId: "NotoSansSymbols2", variant: "bold", fidelity: "approximate" });
-    expect(boldLock.diagnostics.some((message) => message.includes("single regular face approximates the requested bold style"))).toBe(true);
+    expect(boldLock.runs[0]).toMatchObject({ familyId: "NotoSansSymbols2", variant: "regular", fidelity: "approximate" });
+    expect(boldLock.diagnostics.some((message) => message.includes("requested bold, resolved regular") && message.includes("style approximation"))).toBe(true);
     const model = createDocumentModel("plain");
     const plan = buildPdfDefinition(model).fontPlan;
     expect(plan.assets.some(({ path }) => path === PDF_FONT_REGISTRY.NotoSansSymbols2.variants.regular.path)).toBe(false);
@@ -140,7 +140,7 @@ describe("deterministic coverage fallback and PDF text runs", () => {
   ])("does not infer rendering support for %s from individual cmap entries", (_label, sequence, marker) => {
     const result = resolveTextToFontRuns(sequence, { documentFamily: "Arial" });
     expect(result.runs).toEqual([expect.objectContaining({ text: sequence, displayText: marker, fidelity: "unresolved", resolutionIssue: "unqualified-sequence" })]);
-    expect(result.diagnostics.join(" ")).toContain("No currently qualified shaping path");
+    expect(result.diagnostics.join(" ")).toContain("Qualified shaping is unsupported");
     expect(result.runs.map(({ text }) => text).join("")).toBe(sequence);
   });
 
@@ -153,8 +153,12 @@ describe("deterministic coverage fallback and PDF text runs", () => {
     const result = resolveTextToFontRuns(source, { documentFamily: "Arial" });
     expect(result.runs.map(({ text }) => text).join("")).toBe(source);
     expect(result.runs.filter(({ resolutionIssue }) => resolutionIssue === "unqualified-direction").length).toBeGreaterThan(0);
-    for (const codePoint of codePoints) expect(result.diagnostics.join(" ")).toContain(codePoint);
-    expect(result.diagnostics.join(" ")).toContain("Bidirectional ordering is not supported");
+    const diagnostic = result.diagnostics.join(" ");
+    expect(diagnostic).toContain(codePoints[0]);
+    if (codePoints.length > 8) expect(diagnostic).toContain("…");
+    const visibleMarkers = result.runs.filter(({ resolutionIssue }) => resolutionIssue === "unqualified-direction").map(({ displayText }) => displayText).join("");
+    for (const codePoint of codePoints) expect(visibleMarkers).toContain(codePoint);
+    expect(diagnostic).toContain("Bidirectional ordering is not supported");
     expect(result.runs.filter(({ resolutionIssue }) => resolutionIssue === "unqualified-direction")
       .every(({ displayText }) => /^(?:\[U\+[0-9A-F+]+\])+$/u.test(displayText ?? ""))).toBe(true);
   });
@@ -204,9 +208,31 @@ describe("deterministic coverage fallback and PDF text runs", () => {
   });
 
   it("uses actual variant coverage and reports an approximate style when no face supports it", () => {
-    const result = resolveTextToFontRuns(String.fromCodePoint(0xF001), { familyId: "LiberationSerif", variant: "boldItalic" });
+    const glyph = String.fromCodePoint(0xF001);
+    const result = resolveTextToFontRuns(glyph, { familyId: "LiberationSerif", variant: "boldItalic" });
     expect(result.runs[0]).toMatchObject({ familyId: "LiberationSerif", variant: "italic", fidelity: "approximate" });
-    expect(result.diagnostics[0]).toContain("uses italic");
+    expect(result.diagnostics[0]).toContain("requested boldItalic, resolved italic");
+    expect(fontAssetCovers(PDF_FONT_REGISTRY.LiberationSans.variants.boldItalic, 0xF001)).toBe(false);
+    expect(fontAssetCovers(PDF_FONT_REGISTRY.LiberationSerif.variants.italic, 0xF001)).toBe(true);
+  });
+
+  it("never borrows a private-use glyph from an unrelated family", () => {
+    const glyph = String.fromCodePoint(0xF001);
+    const result = resolveTextToFontRuns(glyph, { documentFamily: "Arial", variant: "boldItalic" });
+    expect(result.runs[0]).toMatchObject({
+      familyId: "LiberationSans",
+      fidelity: "unresolved",
+      resolutionIssue: "private-use",
+      displayText: "[U+F001]",
+    });
+    expect(result.diagnostics.join(" ")).toContain("Private-use fallback from unrelated font families is disabled");
+  });
+
+  it("reports the regular-face approximation for single-face fallback fonts", () => {
+    const result = resolveTextToFontRuns("🔒", { familyId: "NotoSansSymbols2", variant: "bold" });
+    expect(result.runs[0]).toMatchObject({ familyId: "NotoSansSymbols2", variant: "regular", fidelity: "approximate" });
+    expect(result.diagnostics.join(" ")).toContain("requested bold, resolved regular");
+    expect(result.diagnostics.join(" ")).toContain("style approximation");
   });
 
   it("does not break a grapheme cluster when the fallback lacks one combining mark", () => {
@@ -245,9 +271,24 @@ describe("deterministic coverage fallback and PDF text runs", () => {
   it("bounds export diagnostics across many separate Markdown text nodes", () => {
     const source = Array.from({ length: 50 }, (_, index) => `${String.fromCodePoint(0x1F600 + index)} word${index}`).join(" ");
     const diagnostics = buildPdfDefinition(createDocumentModel(source)).diagnostics;
-    expect(diagnostics.length).toBe(20);
+    expect(diagnostics.length).toBeLessThanOrEqual(20);
     expect(diagnostics.every(({ message }) => message.length <= 240)).toBe(true);
-    expect(diagnostics.at(-1)?.message).toContain("maximum 20");
+    expect(diagnostics.some(({ message }) => message.includes("maximum 20") || message.includes("50 occurrence(s)"))).toBe(true);
+  });
+
+  it("keeps an unsupported marker visible after more than twenty resolved fallback characters", () => {
+    const fallbackText = "ԤԥԦԧԨԩԮԯ⁒⁰ⁱ₸₹₺₼₽KÅ⅄Ↄ∅▷◁ⱮⱯ";
+    const fallbackCodePoints = codePoints(fallbackText);
+    expect(fallbackCodePoints.length).toBeGreaterThan(20);
+    for (const point of fallbackCodePoints) {
+      expect(fontAssetCovers(PDF_FONT_REGISTRY.LiberationSans.variants.regular, point)).toBe(false);
+      expect(fontAssetCovers(PDF_FONT_REGISTRY.DocmarkSignatureSans.variants.regular, point)).toBe(true);
+    }
+    const { definition, diagnostics } = buildPdfDefinition(createDocumentModel(`${fallbackText}😀`));
+    expect(JSON.stringify(definition)).toContain("[U+1F600]");
+    expect(diagnostics.length).toBeLessThanOrEqual(20);
+    expect(diagnostics.some(({ message }) => message.includes("U+1F600"))).toBe(true);
+    expect(diagnostics.some(({ message }) => message.includes("Unicode fallback uses Docmark Signature Sans"))).toBe(true);
   });
 
   it("marks unqualified RTL text visibly in an actual Markdown adapter document", () => {
@@ -274,7 +315,7 @@ describe("deterministic coverage fallback and PDF text runs", () => {
     expect(result.runs.some(({ text, familyId }) => text === "∈" && familyId === "DejaVuMathTeXGyre")).toBe(true);
     expect(result.diagnostics.some((message) => message.includes("No configured native PDF font covers") && message.includes("U+2208"))).toBe(false);
     expect(result.diagnostics.some((message) => message.includes("U+1F600"))).toBe(true);
-    expect(result.diagnostics.filter((message) => message.includes("The PDF shows")).every((message) => message.includes("semantic document and Markdown source are unchanged"))).toBe(true);
+    expect(result.diagnostics.filter((message) => message.includes("code-point markers")).every((message) => message.includes("source is unchanged"))).toBe(true);
   });
 
   it("keeps diagnostic output bounded for many unique missing clusters", () => {
@@ -282,7 +323,17 @@ describe("deterministic coverage fallback and PDF text runs", () => {
     const result = resolveTextToFontRuns(symbols, { documentFamily: "Arial" });
     expect(result.runs.map(({ text }) => text).join("")).toBe(symbols);
     expect(result.diagnostics.length).toBeLessThanOrEqual(20);
-    expect(result.diagnostics.at(-1)).toContain("omitted");
+    expect(result.diagnostics.join(" ")).toContain("80 occurrence(s)");
+    expect(result.diagnostics.join(" ")).toContain("U+1F600");
+  });
+
+  it("groups repeated fallback graphemes and retains a later unsupported-cluster warning", () => {
+    const result = resolveTextToFontRuns("₽₽₽" + String.fromCodePoint(0x1F600), { documentFamily: "Arial" });
+    expect(result.diagnostics).toHaveLength(2);
+    expect(result.diagnostics[0]).toContain("No configured native PDF font covers");
+    expect(result.diagnostics[0]).toContain("U+1F600");
+    expect(result.diagnostics[1]).toContain("3 occurrence(s)");
+    expect(result.diagnostics[1]).toContain("Docmark Signature Sans");
   });
 
   it("preserves bold, links, code whitespace and source text through the adapter", () => {

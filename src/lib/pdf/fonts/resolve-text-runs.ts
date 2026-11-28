@@ -7,7 +7,7 @@ import {
 } from "./registry";
 import type { PdfFontCoverageMetadata, PdfFontFamily, PdfFontVariant, ResolvedTextRun, TextRunResolution } from "./types";
 import { fontAssetCoversText, GENERATED_FONT_COVERAGE, getCurrentFontCoverage } from "./coverage";
-import { codePoints, formatCodePoint, requiresUnqualifiedDirection, segmentGraphemes } from "./unicode";
+import { codePoints, containsPrivateUseCodePoint, formatCodePoint, requiresUnqualifiedDirection, segmentGraphemes } from "./unicode";
 
 const VARIANT_ORDER: Record<PdfFontVariant, PdfFontVariant[]> = {
   regular: ["regular", "bold", "italic", "boldItalic"],
@@ -57,7 +57,8 @@ function mergedRuns(runs: ResolvedTextRun[]): ResolvedTextRun[] {
 
 function clusterLabel(cluster: string): string {
   const points = codePoints(cluster);
-  const printable = !requiresUnqualifiedDirection(cluster) && points.length <= 8 && [...cluster].every((character) => {
+  const printable = !containsPrivateUseCodePoint(cluster) && !requiresUnqualifiedDirection(cluster)
+    && !requiresUnqualifiedSequenceHandling(cluster) && points.length <= 8 && [...cluster].every((character) => {
     const point = character.codePointAt(0)!;
     return point >= 0x20 && point !== 0x7F && !(point >= 0x80 && point <= 0x9F);
   });
@@ -92,7 +93,6 @@ function resolveCluster(
   metadata: PdfFontCoverageMetadata,
 ): { run: ResolvedTextRun; stalePaths: string[] } {
   const stalePaths: string[] = [];
-  const candidates = VARIANT_ORDER[requestedVariant].flatMap((variant) => families.map((family) => ({ family, variant })));
   // Line breaks are layout controls, not glyphs; retain them in the primary text stream.
   const isLineBreak = cluster === "\n" || cluster === "\r" || cluster === "\r\n";
   if (isLineBreak) {
@@ -128,7 +128,10 @@ function resolveCluster(
       stalePaths,
     };
   }
-  for (const { family, variant } of candidates) {
+  const privateUse = containsPrivateUseCodePoint(cluster);
+  const allowedFamilies = privateUse ? [primary] : families;
+  const allowedCandidates = VARIANT_ORDER[requestedVariant].flatMap((variant) => allowedFamilies.map((family) => ({ family, variant })));
+  for (const { family, variant } of allowedCandidates) {
     const asset = family.variants[variant];
     if (!asset) continue;
     if (!getCurrentFontCoverage(asset, metadata)) {
@@ -137,13 +140,14 @@ function resolveCluster(
     }
     if (fontAssetCoversText(asset, cluster, metadata)) {
       const onlyOneFace = new Set(Object.values(family.variants).map((face) => face.path)).size === 1;
-      const styleApproximation = onlyOneFace && variant !== "regular";
+      const resolvedVariant = onlyOneFace ? "regular" : variant;
+      const styleApproximation = resolvedVariant !== requestedVariant;
       return {
         run: {
           text: cluster,
           familyId: family.id,
-          variant,
-          fidelity: family.id === primary.id && variant === requestedVariant && !styleApproximation ? "exact" : "approximate",
+          variant: resolvedVariant,
+          fidelity: family.id === primary.id && resolvedVariant === requestedVariant && !styleApproximation ? "exact" : "approximate",
         },
         stalePaths,
       };
@@ -157,6 +161,7 @@ function resolveCluster(
       familyId: primary.id,
       variant: availableVariant,
       fidelity: "unresolved",
+      ...(privateUse ? { resolutionIssue: "private-use" as const } : {}),
     },
     stalePaths,
   };
@@ -171,38 +176,91 @@ export function resolveTextToFontRuns(
   const { primary, families, label } = fontCandidates(request);
   const requestedVariant = request.variant ?? "regular";
   const runs: ResolvedTextRun[] = [];
-  const diagnostics = new Set<string>();
-  let diagnosticsTruncated = false;
-  const addDiagnostic = (message: string) => {
-    if (diagnostics.has(message)) return;
-    if (diagnostics.size < 19) diagnostics.add(message);
-    else diagnosticsTruncated = true;
-  };
+  type DiagnosticGroup = { count: number; samples: string[] };
+  const unresolvedGroups = new Map<string, DiagnosticGroup>();
+  const variantGroups = new Map<string, DiagnosticGroup>();
+  const fallbackGroups = new Map<string, DiagnosticGroup>();
   const stalePaths = new Set<string>();
+  const addGroup = (groups: Map<string, DiagnosticGroup>, key: string, sample: string) => {
+    const group = groups.get(key) ?? { count: 0, samples: [] };
+    group.count += 1;
+    if (!group.samples.includes(sample) && group.samples.length < 8) group.samples.push(sample);
+    groups.set(key, group);
+  };
   for (const cluster of segmentGraphemes(text)) {
     const resolution = resolveCluster(cluster, primary, families, requestedVariant, metadata);
     resolution.stalePaths.forEach((path) => stalePaths.add(path));
     const { run } = resolution;
     runs.push(run);
     if (run.fidelity === "approximate" && run.familyId !== primary.id) {
-      const fallbackFamily = PDF_FONT_REGISTRY[run.familyId as PdfFontFamilyId];
-      const styleApproximation = new Set(Object.values(fallbackFamily.variants).map((face) => face.path)).size === 1 && requestedVariant !== "regular";
-      addDiagnostic(`Unicode fallback uses ${fallbackFamily.displayName} for ${clusterLabel(cluster)} instead of the selected ${label} face.${styleApproximation ? ` Its single regular face approximates the requested ${requestedVariant} style.` : ""}`);
+      addGroup(fallbackGroups, `${run.familyId}:${requestedVariant}:${run.variant}`, clusterLabel(cluster));
     } else if (run.fidelity === "approximate" && run.variant !== requestedVariant) {
-      addDiagnostic(`${PDF_FONT_REGISTRY[run.familyId as PdfFontFamilyId].displayName} uses ${run.variant} for ${clusterLabel(cluster)} because the requested ${requestedVariant} face lacks coverage.`);
+      addGroup(variantGroups, `${run.familyId}:${requestedVariant}:${run.variant}`, clusterLabel(cluster));
     }
     if (run.fidelity === "unresolved") {
-      const reason = run.resolutionIssue === "unqualified-sequence"
-        ? "No currently qualified shaping path supports this complete Unicode sequence"
-        : run.resolutionIssue === "unqualified-direction"
-          ? "Bidirectional ordering is not supported for this text"
-        : "No configured native PDF font covers this grapheme";
-      addDiagnostic(`${reason} ${clusterLabel(cluster)}. The PDF shows ${run.displayText} instead of the glyph; the semantic document and Markdown source are unchanged.`);
+      addGroup(unresolvedGroups, run.resolutionIssue ?? "no-font", clusterLabel(cluster));
     }
   }
-  for (const path of stalePaths) addDiagnostic(`Font coverage metadata is missing or stale for ${path}; fallback was not inferred from that face.`);
-  if (diagnosticsTruncated) diagnostics.add("Additional font coverage diagnostics were omitted to keep the export warning list bounded.");
-  return { runs: mergedRuns(runs), diagnostics: [...diagnostics] };
+
+  const diagnostics: { priority: number; category: string; message: string }[] = [];
+  const samples = (group: DiagnosticGroup) => {
+    let result = "";
+    for (const sample of group.samples) {
+      const next = result ? `${result}, ${sample}` : sample;
+      if (next.length > 150) break;
+      result = next;
+    }
+    return `${group.count} occurrence(s): ${result}${group.count > group.samples.length || result.split(", ").length < group.samples.length ? ", …" : ""}`;
+  };
+  for (const [reason, group] of unresolvedGroups) {
+    const message = reason === "unqualified-sequence"
+      ? `Qualified shaping is unsupported (${samples(group)}). PDF shows code-point markers; source is unchanged.`
+      : reason === "unqualified-direction"
+        ? `Bidirectional ordering is not supported (${samples(group)}). PDF shows code-point markers; source is unchanged.`
+        : reason === "private-use"
+          ? `Private-use fallback from unrelated font families is disabled (${samples(group)}). PDF shows code-point markers; source is unchanged.`
+          : `No configured native PDF font covers ${samples(group)}. PDF shows code-point markers; source is unchanged.`;
+    diagnostics.push({
+      priority: 0,
+      category: "unsupported text",
+      message,
+    });
+  }
+  for (const path of stalePaths) {
+    diagnostics.push({
+      priority: 1,
+      category: "stale coverage",
+      message: `Font coverage metadata is missing or stale for ${path}; fallback was not inferred from that face.`,
+    });
+  }
+  for (const [key, group] of variantGroups) {
+    const [familyId, requested, resolved] = key.split(":");
+    const family = PDF_FONT_REGISTRY[familyId as PdfFontFamilyId];
+    const singleFace = new Set(Object.values(family.variants).map((face) => face.path)).size === 1;
+    diagnostics.push({
+      priority: 2,
+      category: "variant approximations",
+      message: `${family.displayName} uses ${resolved} for ${samples(group)}; requested ${requested}, resolved ${resolved}. The requested variant lacks glyph coverage${singleFace ? "; its single regular face provides a style approximation" : ""}.`,
+    });
+  }
+  for (const [key, group] of fallbackGroups) {
+    const [familyId, requested, resolved] = key.split(":");
+    const family = PDF_FONT_REGISTRY[familyId as PdfFontFamilyId];
+    diagnostics.push({
+      priority: 3,
+      category: "successful font fallbacks",
+      message: `Unicode fallback uses ${family.displayName} instead of the selected ${label} face for ${samples(group)}; requested ${requested}, resolved ${resolved}${resolved !== requested ? ` (style approximation)` : ""}.`,
+    });
+  }
+  const bounded = diagnostics.slice(0, 19).map(({ message }) => message);
+  const omitted = diagnostics.slice(19);
+  if (omitted.length) {
+    const categories = new Map<string, number>();
+    for (const entry of omitted) categories.set(entry.category, (categories.get(entry.category) ?? 0) + 1);
+    const summary = [...categories].map(([category, count]) => `${count} ${category}`).join(", ");
+    bounded.push(`Additional font diagnostics omitted to keep the warning list bounded (maximum 20): ${summary}.`);
+  }
+  return { runs: mergedRuns(runs), diagnostics: bounded };
 }
 
 export function resolveTextForDocument(

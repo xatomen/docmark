@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createDocumentModel } from "@/lib/document-model";
 import { DOCUMENT_FONT_FAMILIES } from "@/lib/document/settings";
@@ -12,6 +14,22 @@ import { resolvePdfFont } from "@/lib/pdf/fonts/resolve-font";
 import type { PdfFontAsset, PdfFontFamily } from "@/lib/pdf/fonts/types";
 
 describe("native PDF font registry and resolution", () => {
+  it("verifies the specific license attribution and notice path for every registered PDF family", () => {
+    for (const family of Object.values(PDF_FONT_REGISTRY)) {
+      const licenseText = readFileSync(join(process.cwd(), "public", family.license.path.slice(1)), "utf8");
+      expect(licenseText).toContain(family.license.attribution);
+      if (family.license.id === "SIL-OFL-1.1") {
+        expect(licenseText).toContain("SIL OPEN FONT LICENSE Version 1.1");
+      } else {
+        expect(family.license.id).toBe("Bitstream-Vera");
+        expect(licenseText).toContain("Bitstream, Inc.");
+        expect(licenseText).toContain("Permission is hereby granted");
+      }
+      expect(family.provenance.sourceUrl).toMatch(/^https:\/\//);
+      expect(family.provenance.version.length).toBeGreaterThan(0);
+    }
+  });
+
   it("has a deterministic licensed static TrueType face for every current document family", () => {
     expect(Object.keys(DOCUMENT_PDF_FONT_MAPPINGS).sort()).toEqual([...DOCUMENT_FONT_FAMILIES].sort());
     expect(DEFAULT_PDF_DOCUMENT_FAMILY).toBe("Arial");
@@ -22,11 +40,26 @@ describe("native PDF font registry and resolution", () => {
       expect(family.internalFamilyName.length).toBeGreaterThan(0);
       expect(family.license.id).toBe("SIL-OFL-1.1");
       expect(family.license.path).toMatch(/^\/fonts\/.+OFL\.txt$/);
+      const licenseText = readFileSync(join(process.cwd(), "public", family.license.path.slice(1)), "utf8");
+      expect(licenseText).toContain(family.license.attribution);
+      expect(licenseText).toContain("SIL OPEN FONT LICENSE Version 1.1");
       for (const asset of Object.values(family.variants)) {
         expect(asset.path).toMatch(/\.ttf$/);
         expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/);
       }
     }
+  });
+
+  it("checks the registered Noto attribution against the Noto font and Debian package notices", () => {
+    const family = PDF_FONT_REGISTRY.NotoSansSymbols2;
+    const license = readFileSync(join(process.cwd(), "public", family.license.path.slice(1)), "utf8");
+    const packageNotice = readFileSync("public/fonts/pdf/noto-sans-symbols2/COPYRIGHT.txt", "utf8");
+    expect(family.license.attribution).toBe("Copyright 2017 Google Inc. All Rights Reserved.");
+    expect(license).toContain(family.license.attribution);
+    expect(license).not.toContain("Montserrat");
+    expect(packageNotice).toContain("2010,2012-2020, Google Inc.");
+    expect(packageNotice).toContain("2015-2020, Google LLC.");
+    expect(family.provenance.version).toContain("20201225-2");
   });
 
   it.each([
@@ -163,28 +196,57 @@ describe("native PDF font registry and resolution", () => {
   });
 });
 
-describe("PDF font asset loading", () => {
+describe("origin-bound font asset loader", () => {
   const asset = PDF_FONT_REGISTRY.LiberationSans.variants.regular;
+  const validFontBytes = new Uint8Array(readFileSync(join(process.cwd(), "public", asset.path.slice(1))));
+  const freshResponse = (bytes: Uint8Array) => new Response(bytes.slice(), { status: 200 });
 
-  it("fetches a local asset once for concurrent and repeated exports", async () => {
-    const fetch = vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+  it("validates actual registered font bytes once and deduplicates concurrent and repeated loads", async () => {
+    const fetch = vi.fn(async () => freshResponse(validFontBytes));
     const loader = createPdfFontAssetLoader(fetch, () => "https://docmark.test");
     const first = loader.load(asset);
     const second = loader.load(asset);
     expect(second).toBe(first);
-    await expect(first).resolves.toEqual(new Uint8Array([1, 2, 3]));
+    await expect(first).resolves.toEqual(validFontBytes);
     await loader.load(asset);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith(new URL(asset.path, "https://docmark.test"), { credentials: "same-origin", redirect: "error" });
+    expect(fetch).toHaveBeenCalledWith(new URL(asset.path, "https://docmark.test"), {
+      credentials: "same-origin",
+      redirect: "error",
+      cache: "no-store",
+    });
   });
 
-  it("clears a failed request so the same font can be retried", async () => {
+  it.each([
+    ["empty", new Uint8Array(), "response is empty"],
+    ["malformed", new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), "Malformed TrueType"],
+    ["hash-mismatched", new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), "integrity check failed"],
+  ])("rejects %s HTTP 200 font response", async (_label, bytes, message) => {
+    const fetch = vi.fn(async () => freshResponse(bytes));
+    const loader = createPdfFontAssetLoader(fetch, () => "https://docmark.test");
+    await expect(loader.load(asset)).rejects.toThrow(message);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears an invalid HTTP 200 from memory and bypasses browser cache on retry", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(freshResponse(new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])))
+      .mockResolvedValueOnce(freshResponse(validFontBytes));
+    const loader = createPdfFontAssetLoader(fetch, () => "https://docmark.test");
+    await expect(loader.load(asset)).rejects.toThrow("integrity check failed");
+    await expect(loader.load(asset)).resolves.toEqual(validFontBytes);
+    await loader.load(asset);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls.every(([, init]) => init.cache === "no-store")).toBe(true);
+  });
+
+  it("clears a failed HTTP request so the same font can be retried", async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response("offline", { status: 503 }))
-      .mockResolvedValueOnce(new Response(new Uint8Array([4, 5]), { status: 200 }));
+      .mockResolvedValueOnce(freshResponse(validFontBytes));
     const loader = createPdfFontAssetLoader(fetch, () => "https://docmark.test");
     await expect(loader.load(asset)).rejects.toThrow("Unable to load PDF font (503)");
-    await expect(loader.load(asset)).resolves.toEqual(new Uint8Array([4, 5]));
+    await expect(loader.load(asset)).resolves.toEqual(validFontBytes);
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 

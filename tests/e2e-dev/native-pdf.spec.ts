@@ -154,6 +154,50 @@ test("native export warnings stay out of print while document pages remain visib
   await expect(physicalPages.first()).toBeVisible();
 });
 
+test("DEV native PDF rejects a stale HTTP 200 font, retries without reload, and reuses verified bytes", async ({ page }) => {
+  const fontPath = "**/fonts/liberation/LiberationSans-Regular.ttf";
+  let returnInvalid = true;
+  let fontRequestCount = 0;
+  let downloadCount = 0;
+  page.on("download", () => { downloadCount += 1; });
+  await page.route(fontPath, async (route) => {
+    fontRequestCount += 1;
+    if (returnInvalid) {
+      await route.fulfill({
+        status: 200,
+        contentType: "font/ttf",
+        body: Buffer.from([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.goto("/editor");
+  await markdownEditor(page).fill("Font integrity retry.");
+  const native = page.getByRole("button", { name: "Native PDF (Experimental)" });
+  await native.click();
+  await expect(page.getByText(/Native PDF export failed:.*integrity check failed/)).toBeVisible();
+  expect(downloadCount).toBe(0);
+  expect(fontRequestCount).toBe(1);
+
+  returnInvalid = false;
+  const firstDownloadPromise = page.waitForEvent("download");
+  await native.click();
+  const firstDownload = await firstDownloadPromise;
+  const firstPdf = new Uint8Array(await readFile((await firstDownload.path())!));
+  const parsed = await getDocument({ data: firstPdf, useSystemFonts: true }).promise;
+  const text = (await (await parsed.getPage(1)).getTextContent()).items.map((item) => "str" in item ? item.str : "").join(" ");
+  expect(text).toContain("Font integrity retry.");
+  expect(fontRequestCount).toBe(2);
+
+  const secondDownloadPromise = page.waitForEvent("download");
+  await native.click();
+  await secondDownloadPromise;
+  expect(fontRequestCount).toBe(2);
+  expect(downloadCount).toBe(2);
+});
+
 test("selected Montserrat is embedded lazily and repeat export reuses local font assets", async ({ page }) => {
   await page.goto("/editor");
   const editor = markdownEditor(page);

@@ -73,7 +73,12 @@ try {
     { name: "tables-and-lists", source: "3. primero\n4. segundo\n   - anidado\n\n| A | B |\n|---|---|\n| celda | valor |", expected: ["primero", "segundo", "anidado", "celda", "valor"] },
     { name: "code-blocks", source: "> cita de prueba\n\n```js\nconst value = 10;\n```", expected: ["cita de prueba", "const", "value", "10;"] },
     { name: "code-only", source: "```txt\nconst value = 1;\n```", expected: ["const", "value", "1;"], expectedFontFamilies: ["LiberationMono"], expectedOnlyFonts: ["LiberationMono"] },
-    { name: "empty-document", source: "", expectedPages: [[]] },
+    { name: "code-only-page-breaks", source: "```txt\nfirstCode\n```\n\n:::pagebreak\n:::\n\n```txt\nsecondCode\n```", expectedPages: [["firstCode"], ["secondCode"]], expectedOnlyFonts: ["LiberationMono"] },
+    { name: "inline-code-only", source: "`onlyInlineCode`", expected: ["onlyInlineCode"], expectedOnlyFonts: ["LiberationMono"] },
+    { name: "empty-table-cells-with-code", source: "| code | empty |\n|---|---|\n| `tableCode` | |", expected: ["tableCode"], expectedOnlyFonts: ["LiberationSans", "LiberationMono"] },
+    { name: "fallback-glyphs-only", source: "₽₹₸₺₼", expected: ["₽", "₹", "₸", "₺", "₼"], expectedOnlyFonts: ["DocmarkSignatureSans-Regular"] },
+    { name: "fallback-priority-unsupported-tail", source: "ԤԥԦԧԨԩԮԯ⁒⁰ⁱ₸₹₺₼₽KÅ⅄Ↄ∅▷◁ⱮⱯ😀", expected: ["Ԥ", "Ɐ", "U+1F600"], expectedDiagnostics: ["U+1F600"], expectedOnlyFonts: ["LiberationSans", "DocmarkSignatureSans-Regular"] },
+    { name: "empty-document", source: "", expectedPages: [[]], expectedOnlyFonts: [] },
     { name: "explicit-page-break", source: "# Primera\n\n:::pagebreak\n:::\n\n# Segunda", expectedPages: [["Primera"], ["Segunda"]] },
     { name: "leading-page-break", source: ":::pagebreak\n:::\n\nInicio", expectedPages: [["Inicio"]] },
     { name: "trailing-page-break", source: "Contenido\n\n:::pagebreak\n:::", expectedPages: [["Contenido"], []] },
@@ -159,7 +164,7 @@ try {
       expectedPages: [["Integrated technical export"], ["Continuation"]],
       expectedFallbackFamilies: ["DocmarkSignatureSans", "DejaVuMathTeXGyre", "NotoSansSymbols2"],
       expectedLinks: ["https://example.com/integrated"],
-      expectedDiagnostics: ["Decomposed Unicode", "Bidirectional ordering is not supported", "No currently qualified shaping path"],
+      expectedDiagnostics: ["Decomposed Unicode", "Bidirectional ordering is not supported", "Qualified shaping is unsupported"],
       securityInspection: true,
     },
     {
@@ -205,6 +210,7 @@ try {
     "font-family-comparison.pdf",
     "editor-download.pdf",
     "editor-montserrat-download.pdf",
+    "editor-vinext-download.pdf",
   ]);
   for (const existing of await readdir(out)) {
     if (existing.endsWith(".pdf") && !retainedPdfs.has(existing)) await unlink(path.join(out, existing));

@@ -32,3 +32,11 @@ export function requiresUnqualifiedDirection(value: string): boolean {
     (point >= 0x2066 && point <= 0x2069) // isolate controls
   );
 }
+
+/** PUA mappings are font-specific and must not be borrowed from another family. */
+export function containsPrivateUseCodePoint(value: string): boolean {
+  return codePoints(value).some((point) =>
+    (point >= 0xE000 && point <= 0xF8FF)
+    || (point >= 0xF0000 && point <= 0xFFFFD)
+    || (point >= 0x100000 && point <= 0x10FFFD));
+}

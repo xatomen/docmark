@@ -15,7 +15,7 @@ export type PdfFontFamily = {
   internalFamilyName: string;
   category: PdfFontCategory;
   variants: Record<PdfFontVariant, PdfFontAsset>;
-  license: { id: string; path: string; sourceUrl: string };
+  license: { id: string; path: string; sourceUrl: string; attribution: string };
   provenance: { sourceUrl: string; version: string; notes: string };
 };
 
@@ -71,7 +71,7 @@ export type ResolvedTextRun = {
   /** PDF-visible text; set to a code-point marker only when no font covers the source cluster. */
   displayText?: string;
   /** An otherwise mapped cluster was rejected because the complete sequence needs unqualified shaping. */
-  resolutionIssue?: "unqualified-sequence" | "unqualified-direction";
+  resolutionIssue?: "unqualified-sequence" | "unqualified-direction" | "private-use";
   familyId: string;
   variant: PdfFontVariant;
   fidelity: "exact" | "approximate" | "unresolved";

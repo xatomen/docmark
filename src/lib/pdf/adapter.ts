@@ -44,21 +44,56 @@ export function buildPdfDefinition(document: SemanticDocument): {
   const selectedFamily = document.settings.typography.fontFamily || DEFAULT_PDF_DOCUMENT_FAMILY;
   const primaryFamily = resolvePdfFont(selectedFamily);
   const fontUsage = new Map<string, Set<PdfFontVariant>>();
-  const reported = new Set<string>();
   const maxDiagnostics = 20;
   const maxDiagnosticLength = 240;
-  let diagnosticsOmitted = false;
+  const candidateLimit = 64;
+  const candidates = new Map<string, { diagnostic: ExportDiagnostic; priority: number; sequence: number }>();
+  const omittedByKind: Record<ExportDiagnostic["kind"], number> = {
+    unsupported: 0,
+    unsafe: 0,
+    approximation: 0,
+    fidelity: 0,
+  };
+  let sequence = 0;
+  const diagnosticPriority = (kind: ExportDiagnostic["kind"], message: string) => {
+    if (kind === "unsafe") return 0;
+    if (kind === "unsupported" && /U\+[0-9A-F]+|replaced|unresolved|unsupported text|Private-use/i.test(message)) return 0;
+    if (kind === "fidelity") return 1;
+    if (kind === "unsupported") return 2;
+    return 3;
+  };
   const warn = (message: string, kind: ExportDiagnostic["kind"] = "unsupported") => {
     const boundedMessage = message.length > maxDiagnosticLength
       ? `${message.slice(0, maxDiagnosticLength - 1)}…`
       : message;
-    if (reported.has(boundedMessage)) return;
-    reported.add(boundedMessage);
-    if (diagnostics.length >= maxDiagnostics - 1) {
-      diagnosticsOmitted = true;
-      return;
+    if (candidates.has(boundedMessage)) return;
+    const priority = diagnosticPriority(kind, boundedMessage);
+    if (candidates.size >= candidateLimit) {
+      const worst = [...candidates.entries()].sort((left, right) => right[1].priority - left[1].priority || right[1].sequence - left[1].sequence)[0];
+      if (!worst || priority >= worst[1].priority) {
+        omittedByKind[kind] += 1;
+        return;
+      }
+      candidates.delete(worst[0]);
+      omittedByKind[worst[1].diagnostic.kind] += 1;
     }
-    diagnostics.push({ kind, message: boundedMessage });
+    candidates.set(boundedMessage, { diagnostic: { kind, message: boundedMessage }, priority, sequence: sequence++ });
+  };
+  const finishDiagnostics = () => {
+    const ordered = [...candidates.values()].sort((left, right) => left.priority - right.priority || left.sequence - right.sequence);
+    const omittedCount = Object.values(omittedByKind).reduce((sum, count) => sum + count, 0);
+    const slots = omittedCount > 0 ? maxDiagnostics - 1 : maxDiagnostics;
+    diagnostics.push(...ordered.slice(0, slots).map(({ diagnostic }) => diagnostic));
+    const unshown = ordered.slice(slots);
+    for (const { diagnostic } of unshown) omittedByKind[diagnostic.kind] += 1;
+    const finalOmittedCount = Object.values(omittedByKind).reduce((sum, count) => sum + count, 0);
+    if (finalOmittedCount > 0) {
+      const summary = Object.entries(omittedByKind).filter(([, count]) => count > 0).map(([kind, count]) => `${kind}: ${count}`).join(", ");
+      diagnostics.push({
+        kind: "unsupported",
+        message: `Additional export diagnostics were omitted to keep the warning list bounded (maximum ${maxDiagnostics}; ${summary}).`,
+      });
+    }
   };
   for (const diagnostic of document.diagnostics) {
     warn(diagnostic.message, diagnostic.type === "link" ? "unsafe" : "unsupported");
@@ -244,9 +279,7 @@ export function buildPdfDefinition(document: SemanticDocument): {
   if (fontUsage.has(DEFAULT_PDF_MONOSPACE_FAMILY) && primaryFamily.family.id !== DEFAULT_PDF_MONOSPACE_FAMILY) {
     warn("Code uses the local Liberation Mono typeface; HTML preview and print keep their Cascadia Code/Consolas stack.", "approximation");
   }
-  if (diagnosticsOmitted) {
-    diagnostics.push({ kind: "unsupported", message: "Additional PDF export diagnostics were omitted (maximum 20)." });
-  }
+  finishDiagnostics();
 
   const fontDescriptors: Record<string, { normal: string; bold: string; italics: string; bolditalics: string }> = {};
   const assetsByPath = new Map<string, PdfFontAsset>();

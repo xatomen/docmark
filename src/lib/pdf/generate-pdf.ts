@@ -25,6 +25,7 @@ export async function generateNativePdf(document: SemanticDocument): Promise<Nat
     if (blob.type !== "application/pdf") throw new Error("Unexpected PDF MIME type");
     return { blob, diagnostics };
   } catch (error) {
-    throw new Error("Native PDF generation failed", { cause: error });
+    const detail = error instanceof Error ? error.message : "Unknown font or PDF generation error";
+    throw new Error(`Native PDF generation failed: ${detail}`, { cause: error });
   }
 }

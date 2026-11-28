@@ -12,6 +12,7 @@ const liberationLicense = {
   id: "SIL-OFL-1.1",
   path: "/fonts/liberation/OFL.txt",
   sourceUrl: "https://openfontlicense.org/open-font-license-official-text/",
+  attribution: "Copyright (c) 2012 Red Hat, Inc. with Reserved Font Name Liberation.",
 } as const;
 
 const liberationSourceUrl = "https://deb.debian.org/debian/pool/main/f/fonts-liberation/fonts-liberation_2.1.5-3_all.deb";
@@ -92,6 +93,7 @@ export const PDF_FONT_REGISTRY = {
       id: "SIL-OFL-1.1",
       path: "/fonts/pdf/docmark-signature-sans/OFL.txt",
       sourceUrl: "https://openfontlicense.org/open-font-license-official-text/",
+      attribution: "Copyright 2024 The Montserrat.Git Project Authors",
     },
     provenance: {
       sourceUrl: "https://github.com/JulietaUla/Montserrat/tree/cc8daf2e7085006b9c112542fc82b58afc13521d",
@@ -114,6 +116,7 @@ export const PDF_FONT_REGISTRY = {
       id: "Bitstream-Vera",
       path: "/fonts/pdf/dejavu-math/COPYRIGHT.txt",
       sourceUrl: "https://dejavu-fonts.github.io/License.html",
+      attribution: "Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.",
     },
     provenance: {
       sourceUrl: "https://dejavu-fonts.github.io/",
@@ -137,11 +140,12 @@ export const PDF_FONT_REGISTRY = {
       id: "SIL-OFL-1.1",
       path: "/fonts/pdf/noto-sans-symbols2/OFL.txt",
       sourceUrl: "https://openfontlicense.org/open-font-license-official-text/",
+      attribution: "Copyright 2017 Google Inc. All Rights Reserved.",
     },
     provenance: {
-      sourceUrl: "https://github.com/googlefonts/noto-fonts",
+      sourceUrl: "https://deb.debian.org/debian/pool/main/f/fonts-noto/fonts-noto-core_20201225-2_all.deb",
       version: "Noto Sans Symbols2 2.003 (Debian fonts-noto-core 20201225-2)",
-      notes: "One unmodified static TrueType face; used only after measured cmap gaps. Bold and italic slots alias the regular face and are reported as approximations.",
+      notes: "Unmodified TrueType asset; internal copyright is 2017 Google Inc. The Debian package carries Google Inc./LLC copyright ranges and the OFL notice. Upstream project: https://github.com/googlefonts/noto-fonts. Bold and italic slots alias the regular face and are reported as approximations.",
     },
   },
 } as const satisfies Record<string, PdfFontFamily>;
